@@ -1,105 +1,26 @@
 "use client";
-import React, { useState } from "react";
-import { MdAdd, MdSearch, MdFilterList, MdMoreHoriz, MdOutlineBedroomParent, MdOutlineBathroom, MdSquareFoot, MdLocationOn } from "react-icons/md";
+import React, { useState, useEffect } from "react";
+import { MdAdd, MdSearch, MdFilterList, MdMoreHoriz, MdOutlineBedroomParent, MdOutlineBathroom, MdSquareFoot, MdLocationOn, MdChevronLeft, MdChevronRight } from "react-icons/md";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useTheme } from "@/providers/ThemeProvider";
-
-const initialProperties = [
-    {
-        id: 1,
-        title: "Luxury Villa in Beverly Hills",
-        location: "Beverly Hills, CA",
-        price: "$2,500,000",
-        beds: 5,
-        baths: 4,
-        sqft: 4500,
-        status: "Active",
-        image: "https://images.unsplash.com/photo-1613977257363-707ba9348227?auto=format&fit=crop&q=80&w=2670&ixlib=rb-4.0.3",
-        type: "Sale",
-        propertyType: "Single-Family"
-    },
-    {
-        id: 2,
-        title: "Modern Apartment Downtown",
-        location: "New York, NY",
-        price: "$4,500/mo",
-        beds: 2,
-        baths: 2,
-        sqft: 1200,
-        status: "Pending",
-        image: "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&q=80&w=2670&ixlib=rb-4.0.3",
-        type: "Rent",
-        propertyType: "Multi-Family"
-    },
-    {
-        id: 3,
-        title: "Cozy Cottage by the Lake",
-        location: "Lake Tahoe, NV",
-        price: "$850,000",
-        beds: 3,
-        baths: 2,
-        sqft: 1800,
-        status: "Sold",
-        image: "https://images.unsplash.com/photo-1518780664697-55e3ad937233?auto=format&fit=crop&q=80&w=2565&ixlib=rb-4.0.3",
-        type: "Sale",
-        propertyType: "Single-Family"
-    },
-    {
-        id: 4,
-        title: "Industrial Warehouse",
-        location: "Austin, TX",
-        price: "$1,200,000",
-        beds: 0,
-        baths: 1,
-        sqft: 15000,
-        status: "Active",
-        image: "https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&q=80&w=2670&ixlib=rb-4.0.3",
-        type: "Sale",
-        propertyType: "Industrial"
-    },
-    {
-        id: 5,
-        title: "Seaside Mansion",
-        location: "Miami, FL",
-        price: "$5,500,000",
-        beds: 6,
-        baths: 7,
-        sqft: 6500,
-        status: "Active",
-        image: "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&q=80&w=2670&ixlib=rb-4.0.3",
-        type: "Sale",
-        propertyType: "Single-Family"
-    },
-    {
-        id: 6,
-        title: "Modern Loft in Arts District",
-        location: "Los Angeles, CA",
-        price: "$3,200/mo",
-        beds: 1,
-        baths: 1,
-        sqft: 950,
-        status: "Active",
-        image: "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&q=80&w=2670&ixlib=rb-4.0.3",
-        type: "Rent",
-        propertyType: "Multi-Family"
-    }
-];
+import { getProperties } from "@/services/properties.service";
+import { PropertyData } from "@/types/properties.types";
 
 export default function PropertiesPage() {
     const { currentTheme } = useTheme();
-    const [properties, setProperties] = useState(initialProperties);
+    const router = useRouter();
+    const [properties, setProperties] = useState<PropertyData[]>([]);
+    const [loading, setLoading] = useState(true);
     const [showFilters, setShowFilters] = useState(false);
-    const [activeMenuId, setActiveMenuId] = useState<number | null>(null);
-
-    const handleActivate = (id: number) => {
-        setProperties(prev => prev.map(p => p.id === id ? { ...p, status: 'Active' } : p));
-        setActiveMenuId(null);
-    };
-
-    const handleDeactivate = (id: number) => {
-        setProperties(prev => prev.map(p => p.id === id ? { ...p, status: 'Pending' } : p));
-        setActiveMenuId(null);
-    };
+    const [activeMenuId, setActiveMenuId] = useState<number | string | null>(null);
+    const [error, setError] = useState<string | null>(null);
+    const [pagination, setPagination] = useState({
+        page: 1,
+        limit: 9,
+        total: 0,
+        totalPages: 1
+    });
 
     // Filter States
     const [filterStatus, setFilterStatus] = useState("All");
@@ -111,20 +32,74 @@ export default function PropertiesPage() {
     const [baths, setBaths] = useState("");
     const [searchQuery, setSearchQuery] = useState("");
 
-    const filteredProperties = properties.filter(property => {
-        // Parse price (remove $ and , and /mo)
-        const rawPrice = parseInt(property.price.replace(/[$,]/g, '').split('/')[0]);
+    useEffect(() => {
+        const fetchProperties = async () => {
+            setLoading(true);
+            try {
+                const response = await getProperties({
+                    page: pagination.page,
+                    limit: pagination.limit,
+                    search: searchQuery,
+                    type: filterListingType !== "All" ? filterListingType : undefined
+                    // Add other filters to payload as needed if API supports them
+                });
+                setProperties(response.data);
+                if (response.pagination) {
+                    setPagination(prev => ({
+                        ...prev,
+                        total: response.pagination.total,
+                        totalPages: response.pagination.totalPages
+                    }));
+                }
+            } catch (error) {
+                console.error("Failed to fetch properties", error);
+                setError("Failed to connect to the server. Please ensure the backend is running.");
+            } finally {
+                setLoading(false);
+            }
+        };
 
-        const matchesStatus = filterStatus === "All" || property.status === filterStatus;
-        const matchesListingType = filterListingType === "All" || property.type === filterListingType;
-        const matchesPropertyType = filterPropertyType === "All" || property.propertyType === filterPropertyType;
-        const matchesSearch = property.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            property.location.toLowerCase().includes(searchQuery.toLowerCase());
+        // Debounce search
+        const timeoutId = setTimeout(() => {
+            fetchProperties();
+        }, 500);
+
+        return () => clearTimeout(timeoutId);
+    }, [pagination.page, searchQuery, filterListingType]); // trigger fetch on these changes
+
+    const handleActivate = (id: number) => {
+        setProperties(prev => prev.map(p => p.id === id ? { ...p, status: 'Active' } : p));
+        setActiveMenuId(null);
+    };
+
+    const handleDeactivate = (id: number) => {
+        setProperties(prev => prev.map(p => p.id === id ? { ...p, status: 'Pending' } : p));
+        setActiveMenuId(null);
+    };
+
+    const filteredProperties = properties.filter(property => {
+        // Parse price (remove $ and , and /mo) - use listing_price from API
+        const rawPrice = property.listing_price || 0;
+
+        // Status is not in API yet, assume active
+        const status = "Active";
+        const matchesStatus = filterStatus === "All" || status === filterStatus;
+
+        const listingType = property.transaction_type || "Sale";
+        const matchesListingType = filterListingType === "All" || listingType === filterListingType;
+
+        const propType = property.property_type || "Single-Family";
+        const matchesPropertyType = filterPropertyType === "All" || propType === filterPropertyType;
+
+        const title = property.street_address || "Untitled Property";
+        const location = `${property.city}, ${property.state}`;
+        const matchesSearch = title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            location.toLowerCase().includes(searchQuery.toLowerCase());
 
         const matchesMinPrice = minPrice === "" || rawPrice >= parseInt(minPrice);
         const matchesMaxPrice = maxPrice === "" || rawPrice <= parseInt(maxPrice);
-        const matchesBeds = beds === "" || property.beds >= parseInt(beds);
-        const matchesBaths = baths === "" || property.baths >= parseInt(baths);
+        const matchesBeds = beds === "" || (property.bedrooms || 0) >= parseInt(beds);
+        const matchesBaths = baths === "" || (property.bathrooms || 0) >= parseInt(baths);
 
         return matchesStatus && matchesListingType && matchesPropertyType && matchesSearch &&
             matchesMinPrice && matchesMaxPrice && matchesBeds && matchesBaths;
@@ -319,9 +294,25 @@ export default function PropertiesPage() {
 
             {/* Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                {filteredProperties.length > 0 ? (
+                {loading ? (
+                    <div className="col-span-full py-20 flex justify-center">
+                        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+                    </div>
+                ) : error ? (
+                    <div className="col-span-full py-20 flex flex-col items-center justify-center text-center opacity-80">
+                        <div className="text-red-500 mb-2 font-bold text-lg">Network Error</div>
+                        <p className="text-sm">{error}</p>
+                        <button
+                            onClick={() => window.location.reload()}
+                            className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+                        >
+                            Retry
+                        </button>
+                    </div>
+                ) : filteredProperties.length > 0 ? (
                     filteredProperties.map((property) => (
                         <div
+                            onClick={() => router.push(`/properties/review/${property.id}`)}
                             key={property.id}
                             className="rounded-2xl border overflow-hidden hover:shadow-lg transition-all duration-300 group cursor-pointer backdrop-blur-md"
                             style={{
@@ -330,10 +321,10 @@ export default function PropertiesPage() {
                             }}
                         >
                             {/* Image Placeholder */}
-                            <div className="h-48 w-full relative">
+                            <div className="h-48 w-full relative overflow-hidden">
                                 <img
-                                    src={property.image}
-                                    alt={property.title}
+                                    src={property.images && property.images.length > 0 ? property.images[0] : "https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&q=80&w=1000"}
+                                    alt={property.street_address || "Property"}
                                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                                 />
                                 <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-60"></div>
@@ -345,24 +336,22 @@ export default function PropertiesPage() {
                                         color: '#0f172a'
                                     }}
                                 >
-                                    {property.type}
+                                    {property.transaction_type}
                                 </div>
-                                <div className={`absolute top-4 right-4 px-3 py-1 rounded-lg text-xs font-bold text-white shadow-sm ${property.status === 'Active' ? 'bg-emerald-500' :
-                                    property.status === 'Pending' ? 'bg-amber-500' : 'bg-rose-500'
-                                    }`}>
-                                    {property.status}
+                                <div className={`absolute top-4 right-4 px-3 py-1 rounded-lg text-xs font-bold text-white shadow-sm bg-emerald-500`}>
+                                    Active
                                 </div>
                             </div>
 
                             <div className="p-5">
                                 <div className="flex justify-between items-start mb-2">
-                                    <h3 className="text-lg font-bold line-clamp-1 transition-colors" style={{ color: currentTheme.headingColor }}>{property.title}</h3>
-                                    <p className="text-lg font-bold" style={{ color: currentTheme.primary }}>{property.price}</p>
+                                    <h3 className="text-lg font-bold line-clamp-1 transition-colors" style={{ color: currentTheme.headingColor }}>{property.street_address}</h3>
+                                    <p className="text-lg font-bold" style={{ color: currentTheme.primary }}>${property.listing_price?.toLocaleString()}</p>
                                 </div>
 
                                 <div className="flex items-center gap-1 text-sm mb-4" style={{ color: currentTheme.textColor }}>
                                     <MdLocationOn size={16} />
-                                    <p>{property.location}</p>
+                                    <p>{property.city}, {property.state}</p>
                                 </div>
 
                                 <div className="grid grid-cols-3 gap-2 py-3 border-t" style={{ borderColor: currentTheme.borderColor }}>
@@ -371,28 +360,32 @@ export default function PropertiesPage() {
                                             <MdOutlineBedroomParent />
                                             <span className="text-xs font-bold">Beds</span>
                                         </div>
-                                        <span className="text-sm font-bold" style={{ color: currentTheme.headingColor }}>{property.beds}</span>
+                                        <span className="text-sm font-bold" style={{ color: currentTheme.headingColor }}>{property.bedrooms}</span>
                                     </div>
                                     <div className="flex flex-col items-center border-l" style={{ borderColor: currentTheme.borderColor }}>
                                         <div className="flex items-center gap-1.5 mb-1" style={{ color: currentTheme.textColor, opacity: 0.8 }}>
                                             <MdOutlineBathroom />
                                             <span className="text-xs font-bold">Baths</span>
                                         </div>
-                                        <span className="text-sm font-bold" style={{ color: currentTheme.headingColor }}>{property.baths}</span>
+                                        <span className="text-sm font-bold" style={{ color: currentTheme.headingColor }}>{property.bathrooms}</span>
                                     </div>
                                     <div className="flex flex-col items-center border-l" style={{ borderColor: currentTheme.borderColor }}>
                                         <div className="flex items-center gap-1.5 mb-1" style={{ color: currentTheme.textColor, opacity: 0.8 }}>
                                             <MdSquareFoot />
                                             <span className="text-xs font-bold">Sqft</span>
                                         </div>
-                                        <span className="text-sm font-bold" style={{ color: currentTheme.headingColor }}>{property.sqft}</span>
+                                        <span className="text-sm font-bold" style={{ color: currentTheme.headingColor }}>{property.square_feet}</span>
                                     </div>
                                 </div>
 
                                 <div className="pt-4 border-t flex items-center justify-between" style={{ borderColor: currentTheme.borderColor }}>
                                     <div className="flex items-center gap-2">
-                                        <div className="w-6 h-6 rounded-full" style={{ backgroundColor: currentTheme.borderColor }}></div>
-                                        <span className="text-xs font-medium" style={{ color: currentTheme.textColor }}>Agent Smith</span>
+                                        <img
+                                            src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=100"
+                                            alt="Agent"
+                                            className="w-6 h-6 rounded-full object-cover"
+                                        />
+                                        <span className="text-xs font-medium" style={{ color: currentTheme.textColor }}>Atanu Karmakar</span>
                                     </div>
                                     <div className="relative">
                                         <button
@@ -417,7 +410,7 @@ export default function PropertiesPage() {
                                                 onClick={(e) => e.stopPropagation()}
                                             >
                                                 <div className="flex flex-col py-1">
-                                                    <Link href={`/properties/review`} className="w-full">
+                                                    <Link href={`/properties/review/${property.id}`} className="w-full">
                                                         <button
                                                             className="w-full px-4 py-2.5 text-left text-sm font-semibold hover:bg-black/5 transition-colors flex items-center gap-2"
                                                             style={{ color: currentTheme.headingColor }}
@@ -434,22 +427,14 @@ export default function PropertiesPage() {
                                                         </button>
                                                     </Link>
 
-                                                    {property.status === 'Active' ? (
+                                                    {true ? ( // Assuming all active for now
                                                         <button
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                handleDeactivate(property.id);
-                                                            }}
                                                             className="px-4 py-2.5 text-left text-sm font-semibold text-amber-600 hover:bg-amber-50 transition-colors flex items-center gap-2"
                                                         >
                                                             Deactivate
                                                         </button>
                                                     ) : (
                                                         <button
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                handleActivate(property.id);
-                                                            }}
                                                             className="px-4 py-2.5 text-left text-sm font-semibold text-emerald-600 hover:bg-emerald-50 transition-colors flex items-center gap-2"
                                                         >
                                                             Activate
@@ -482,6 +467,74 @@ export default function PropertiesPage() {
                     </div>
                 )}
             </div>
+
+            {/* Pagination Controls */}
+            {!loading && !error && properties.length > 0 && (
+                <div className="flex flex-col sm:flex-row justify-between items-center gap-4 py-6 border-t mt-8" style={{ borderColor: currentTheme.borderColor }}>
+
+                    <div className="text-sm opacity-70" style={{ color: currentTheme.textColor }}>
+                        Showing <span className="font-bold">{(pagination.page - 1) * pagination.limit + 1}</span> to <span className="font-bold">{Math.min(pagination.page * pagination.limit, pagination.total)}</span> of <span className="font-bold">{pagination.total}</span> entries
+                    </div>
+
+                    <div className="flex items-center gap-1">
+                        <button
+                            onClick={() => setPagination(prev => ({ ...prev, page: Math.max(1, prev.page - 1) }))}
+                            disabled={pagination.page === 1}
+                            className="p-2 rounded-lg border hover:bg-black/5 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                            style={{
+                                borderColor: currentTheme.borderColor,
+                                color: currentTheme.headingColor
+                            }}
+                        >
+                            <MdChevronLeft size={20} />
+                        </button>
+
+                        {/* Page Numbers Logic - Simplified for now to show surrounding pages */}
+                        {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
+                            // Logic to show pages around current page
+                            let pageNum = pagination.page;
+                            if (pagination.totalPages <= 5) {
+                                pageNum = i + 1;
+                            } else if (pagination.page <= 3) {
+                                pageNum = i + 1;
+                            } else if (pagination.page >= pagination.totalPages - 2) {
+                                pageNum = pagination.totalPages - 4 + i;
+                            } else {
+                                pageNum = pagination.page - 2 + i;
+                            }
+
+                            return (
+                                <button
+                                    key={pageNum}
+                                    onClick={() => setPagination(prev => ({ ...prev, page: pageNum }))}
+                                    className={`w-9 h-9 flex items-center justify-center rounded-lg text-sm font-bold transition-all ${pagination.page === pageNum
+                                        ? 'text-white shadow-md transform scale-105'
+                                        : 'hover:bg-black/5'
+                                        }`}
+                                    style={{
+                                        backgroundColor: pagination.page === pageNum ? currentTheme.primary : 'transparent',
+                                        color: pagination.page === pageNum ? '#fff' : currentTheme.textColor
+                                    }}
+                                >
+                                    {pageNum}
+                                </button>
+                            );
+                        })}
+
+                        <button
+                            onClick={() => setPagination(prev => ({ ...prev, page: Math.min(pagination.totalPages, prev.page + 1) }))}
+                            disabled={pagination.page === pagination.totalPages}
+                            className="p-2 rounded-lg border hover:bg-black/5 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                            style={{
+                                borderColor: currentTheme.borderColor,
+                                color: currentTheme.headingColor
+                            }}
+                        >
+                            <MdChevronRight size={20} />
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
