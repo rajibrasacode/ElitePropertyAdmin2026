@@ -17,7 +17,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
 
     return (
         <div
-            className="flex min-h-screen font-sans"
+            className="flex h-screen overflow-hidden font-sans"
             style={{
                 backgroundColor: currentTheme.background,
                 color: currentTheme.textColor
@@ -30,7 +30,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
                 setMobileOpen={setMobileOpen}
             />
 
-            <main className="flex-1 flex flex-col min-w-0 transition-all duration-300 relative">
+            <main className="flex-1 flex flex-col min-w-0 min-h-0 transition-all duration-300 relative">
 
                 {/* Header */}
                 <div className="sticky top-0 z-40 px-6 pt-4 pb-2">
@@ -55,7 +55,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
                                 <h2 className="text-lg font-bold tracking-tight animate-typing overflow-hidden whitespace-nowrap border-r-4 border-r-blue-500 pr-1" style={{ color: currentTheme.headingColor }}>
                                     Welcome Back, Rajib!
                                 </h2>
-                                <style jsx>{`
+                                {/* <style jsx>{`
                                     @keyframes typing {
                                         0% { width: 0 }
                                         50% { width: 100% }
@@ -66,7 +66,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
                                         animation: typing 6s steps(40, end) infinite;
                                         max-width: fit-content;
                                     }
-                                `}</style>
+                                `}</style> */}
                             </div>
                         </div>
 
@@ -110,7 +110,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
                 </div>
 
                 {/* Page Content - with dynamic scrollbar color if possible or just standard content */}
-                <div className="flex-1 px-6 py-6 overflow-y-auto custom-scrollbar">
+                <div className="flex-1 min-h-0 px-6 py-6 overflow-y-auto custom-scrollbar">
                     {children}
                 </div>
             </main>
