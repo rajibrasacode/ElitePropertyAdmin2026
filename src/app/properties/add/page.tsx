@@ -1,360 +1,844 @@
 "use client";
 
-import React, { useState } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import React, { useState, useEffect } from "react";
+import { useRouter, useParams } from "next/navigation";
 import {
-    MdArrowBack, MdSave, MdCloudUpload, MdLocationOn,
-    MdHome, MdAttachMoney, MdBuild, MdDescription,
-    MdCalendarToday, MdMeetingRoom, MdBathtub, MdSquareFoot,
-    MdGarage, MdDirectionsCar, MdAspectRatio, MdConstruction, MdBrush,
-    MdCheck, MdRealEstateAgent, MdNotes, MdImage, MdWarning, MdLayers,
-    MdApartment, MdMap, MdPlace, MdLocalOffer, MdMoneyOff, MdDesignServices, MdKingBed,
-    MdCheckBox, MdCheckBoxOutlineBlank
+  MdSave,
+  MdLocationOn,
+  MdHome,
+  MdAttachMoney,
+  MdBuild,
+  MdCalendarToday,
+  MdBathtub,
+  MdSquareFoot,
+  MdGarage,
+  MdDirectionsCar,
+  MdAspectRatio,
+  MdConstruction,
+  MdBrush,
+  MdRealEstateAgent,
+  MdApartment,
+  MdMap,
+  MdPlace,
+  MdLocalOffer,
+  MdMoneyOff,
+  MdKingBed,
 } from "react-icons/md";
-import { useTheme } from "@/providers/ThemeProvider";
+import * as yup from "yup";
+import {
+  propertyListingSchema,
+  propertyListingDefaultValues,
+  propertyTypeOptions,
+  roofStatusOptions,
+  interiorConditionOptions,
+  transactionTypeOptions,
+  type PropertyListingData,
+} from "./utility";
+import { PageHeader } from "@/components/common/Pageheader";
+import { Button } from "@/components/common/Button";
+import { TextArea } from "@/components/common/Textarea";
+import { CheckboxButton } from "@/components/common/Checkboxbutton";
+import { InputField } from "@/components/common/InputField";
+import { TextInput } from "@/components/common/Textinput";
+import { SelectInput } from "@/components/common/Selectinput";
+import { FileUpload } from "@/components/common/Fileupload";
+import { SectionCard } from "@/components/common/Sectioncard";
+import {
+  propertiesService,
+  putPropertyByIdService,
+  getPropertyByIdService,
+} from "@/services/properties.service";
+import { PropertyData } from "@/types/properties.types";
 
-export default function AddPropertyPage() {
-    const { currentTheme } = useTheme();
-    const router = useRouter();
+// Error display component
+const ErrorMessage = ({ error }: { error?: string }) => {
+  if (!error) return null;
+  return <p className="mt-1 text-xs text-red-600">{error}</p>;
+};
 
-    const [formData, setFormData] = useState({
-        street_address: "", unit_apt: "", city: "", state: "", zip_code: "", county: "",
-        property_type: "Residential", bedrooms: "", bathrooms: "", square_feet: "",
-        lot_size: "", year_built: "", garage_spaces: "", parking_spaces: "",
-        roof_age: "", roof_status: "Excellent", interior_condition: "Excellent",
-        exterior_paint_required: false, new_floor_required: false, kitchen_renovation_required: false,
-        bathroom_renovation_required: false, drywall_repair_required: false, interior_paint_required: false,
-        listing_price: "", asking_price: "", arv: "", repair_estimate: "",
-        holding_costs: "", assignment_fee: "", transaction_type: "Cash",
-        property_description: "", seller_notes: "", images: [] as File[]
-    });
+export default function PropertyFormPage() {
+  const router = useRouter();
+  const params = useParams();
+  const propertyId = params?.id as string | undefined;
+  const isEditMode = !!propertyId;
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-        const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
-    };
+  const [formData, setFormData] = useState({
+    street_address: "",
+    unit_apt: "",
+    city: "",
+    state: "",
+    zip_code: "",
+    county: "",
+    property_type: "",
+    bedrooms: "",
+    bathrooms: "",
+    square_feet: "",
+    lot_size: "",
+    year_built: "",
+    garage_spaces: "",
+    parking_spaces: "",
+    roof_age: "",
+    roof_status: "",
+    interior_condition: "",
+    exterior_paint_required: false,
+    new_floor_required: false,
+    kitchen_renovation_required: false,
+    bathroom_renovation_required: false,
+    drywall_repair_required: false,
+    interior_paint_required: false,
+    listing_price: "",
+    asking_price: "",
+    arv: "",
+    repair_estimate: "",
+    holding_costs: "",
+    assignment_fee: "",
+    transaction_type: "",
+    property_description: "",
+    seller_notes: "",
+    images: [] as File[],
+  });
 
-    const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const { name, checked } = e.target;
-        setFormData(prev => ({ ...prev, [name]: checked }));
-    };
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files) setFormData(prev => ({ ...prev, images: Array.from(e.target.files || []) }));
-    };
+  // Fetch property data if in edit mode
+  // useEffect(() => {
+  //   if (isEditMode && propertyId) {
+  //     fetchPropertyData(propertyId);
+  //   }
+  // }, [isEditMode, propertyId]);
 
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault(); console.log(formData); alert("Saved!"); router.push("/properties");
-    };
+  // const fetchPropertyData = async (id: string) => {
+  //   setIsLoading(true);
+  //   try {
+  //     const propertyData: PropertyData = await getPropertyByIdService(id);
 
-    // --- Responsive High Contrast Layout ---
-    const cardStyle = {
-        backgroundColor: currentTheme.cardBg,
-        border: `1px solid ${currentTheme.borderColor}`,
-        borderRadius: '12px',
-        padding: '24px',
-        height: '100%',
-        display: 'flex',
-        flexDirection: 'column' as const
-    };
+  //     console.log("Fetched property data:", propertyData); // Debug log
 
-    const inputStyle = `
-        w-full h-[42px] rounded-lg border px-3 pl-10 text-sm outline-none transition-all
-        focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500
-    `;
+  //     // Populate form with existing data
+  //     setFormData({
+  //       street_address: propertyData.street_address || "",
+  //       unit_apt: propertyData.unit_apt || "",
+  //       city: propertyData.city || "",
+  //       state: propertyData.state || "",
+  //       zip_code: propertyData.zip_code || "",
+  //       county: propertyData.county || "",
+  //       property_type: propertyData.property_type || "",
+  //       bedrooms: String(propertyData.bedrooms || ""),
+  //       bathrooms: String(propertyData.bathrooms || ""),
+  //       square_feet: String(propertyData.square_feet || ""),
+  //       lot_size: propertyData.lot_size || "",
+  //       year_built: String(propertyData.year_built || ""),
+  //       garage_spaces: String(propertyData.garage_spaces || ""),
+  //       parking_spaces: String(propertyData.parking_spaces || ""),
+  //       roof_age: propertyData.roof_age || "",
+  //       roof_status: propertyData.roof_status || "",
+  //       interior_condition: propertyData.interior_condition || "",
+  //       exterior_paint_required: propertyData.exterior_paint_required || false,
+  //       new_floor_required: propertyData.new_floor_required || false,
+  //       kitchen_renovation_required:
+  //         propertyData.kitchen_renovation_required || false,
+  //       bathroom_renovation_required:
+  //         propertyData.bathroom_renovation_required || false,
+  //       drywall_repair_required: propertyData.drywall_repair_required || false,
+  //       interior_paint_required: propertyData.interior_paint_required || false,
+  //       listing_price: String(propertyData.listing_price || ""),
+  //       asking_price: String(propertyData.asking_price || ""),
+  //       arv: String(propertyData.arv || ""),
+  //       repair_estimate: String(propertyData.repair_estimate || ""),
+  //       holding_costs: String(propertyData.holding_costs || ""),
+  //       assignment_fee: String(propertyData.assignment_fee || ""),
+  //       transaction_type: propertyData.transaction_type || "",
+  //       property_description: propertyData.property_description || "",
+  //       seller_notes: propertyData.seller_notes || "",
+  //       images: [], // Keep empty for new images, existing images are already on server
+  //     });
+  //   } catch (error: any) {
+  //     console.error("Error fetching property data:", error);
+  //     const errorMessage =
+  //       error?.message ||
+  //       error?.error ||
+  //       "Failed to load property data. Please try again.";
+  //     alert(errorMessage);
+  //     router.push("/properties");
+  //   } finally {
+  //     setIsLoading(false);
+  //   }
+  // };
 
-    const iconWrapperStyle = "absolute left-3 top-1/2 -translate-y-1/2 opacity-50 pointer-events-none";
-    const labelStyle = "block text-xs font-extrabold uppercase tracking-wide mb-1.5 opacity-90";
-    const sectionHeaderStyle = "flex items-center gap-2 mb-5 pb-3 border-b border-dashed";
+  const handleChange = (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+    >,
+  ) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+    // Clear error for this field when user starts typing
+    if (errors[name]) {
+      setErrors((prev) => {
+        const newErrors = { ...prev };
+        delete newErrors[name];
+        return newErrors;
+      });
+    }
+  };
 
-    const InputField = ({ label, icon, children }: any) => (
-        <div className="relative">
-            <label className={labelStyle} style={{ color: currentTheme.headingColor }}>{label}</label>
-            <div className="relative">
-                <div className={iconWrapperStyle} style={{ color: currentTheme.textColor }}>{icon}</div>
-                {children}
-            </div>
-        </div>
-    );
+  const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, checked } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: checked }));
+  };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files)
+      setFormData((prev) => ({
+        ...prev,
+        images: Array.from(e.target.files || []),
+      }));
+    // Clear error for images field
+    if (errors.images) {
+      setErrors((prev) => {
+        const newErrors = { ...prev };
+        delete newErrors.images;
+        return newErrors;
+      });
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    setErrors({});
+
+    try {
+      // Prepare data for validation - convert empty strings to appropriate types
+      const dataToValidate = {
+        ...formData,
+        listing_date: new Date().toISOString().split("T")[0],
+        bedrooms: formData.bedrooms === "" ? 0 : Number(formData.bedrooms),
+        bathrooms: formData.bathrooms === "" ? 0 : Number(formData.bathrooms),
+        square_feet:
+          formData.square_feet === "" ? 0 : Number(formData.square_feet),
+        year_built:
+          formData.year_built === ""
+            ? new Date().getFullYear()
+            : Number(formData.year_built),
+        garage_spaces:
+          formData.garage_spaces === "" ? 0 : Number(formData.garage_spaces),
+        parking_spaces:
+          formData.parking_spaces === "" ? 0 : Number(formData.parking_spaces),
+        listing_price:
+          formData.listing_price === "" ? 0 : Number(formData.listing_price),
+        asking_price:
+          formData.asking_price === "" ? 0 : Number(formData.asking_price),
+        arv: formData.arv === "" ? 0 : Number(formData.arv),
+        repair_estimate:
+          formData.repair_estimate === ""
+            ? 0
+            : Number(formData.repair_estimate),
+        holding_costs:
+          formData.holding_costs === "" ? 0 : Number(formData.holding_costs),
+        assignment_fee:
+          formData.assignment_fee === "" ? 0 : Number(formData.assignment_fee),
+      };
+
+      // Validate against schema
+      await propertyListingSchema.validate(dataToValidate, {
+        abortEarly: false,
+      });
+
+      // Prepare FormData for API submission
+      const apiFormData = new FormData();
+
+      // Text fields
+      const textFields = [
+        "street_address",
+        "unit_apt",
+        "city",
+        "state",
+        "zip_code",
+        "county",
+        "property_type",
+        "lot_size",
+        "roof_age",
+        "roof_status",
+        "interior_condition",
+        "transaction_type",
+        "property_description",
+        "seller_notes",
+      ];
+
+      textFields.forEach((field) => {
+        apiFormData.append(field, (formData as any)[field]);
+      });
+
+      // Number fields
+      const numberFields = [
+        "bedrooms",
+        "bathrooms",
+        "square_feet",
+        "year_built",
+        "garage_spaces",
+        "parking_spaces",
+        "listing_price",
+        "asking_price",
+        "arv",
+        "repair_estimate",
+        "holding_costs",
+        "assignment_fee",
+      ];
+
+      numberFields.forEach((field) => {
+        const value = (dataToValidate as any)[field];
+        apiFormData.append(field, String(value));
+      });
+
+      // Boolean fields
+      const booleanFields = [
+        "exterior_paint_required",
+        "new_floor_required",
+        "kitchen_renovation_required",
+        "bathroom_renovation_required",
+        "drywall_repair_required",
+        "interior_paint_required",
+      ];
+
+      booleanFields.forEach((field) => {
+        apiFormData.append(field, String((formData as any)[field]));
+      });
+
+      // Listing date
+      apiFormData.append("listing_date", dataToValidate.listing_date);
+
+      // Images
+      formData.images.forEach((image) => {
+        apiFormData.append("images", image);
+      });
+
+      // Submit to API
+      if (isEditMode && propertyId) {
+        // Update existing property
+        await putPropertyByIdService(propertyId, apiFormData);
+        alert("Property updated successfully!");
+      } else {
+        // Create new property
+        await propertiesService(apiFormData);
+        alert("Property created successfully!");
+      }
+
+      // Redirect to properties list
+      router.push("/properties");
+    } catch (err) {
+      if (err instanceof yup.ValidationError) {
+        // Collect all validation errors
+        const validationErrors: Record<string, string> = {};
+        err.inner.forEach((error) => {
+          if (error.path) {
+            validationErrors[error.path] = error.message;
+          }
+        });
+        setErrors(validationErrors);
+
+        // Scroll to first error
+        const firstErrorField = Object.keys(validationErrors)[0];
+        const errorElement = document.querySelector(
+          `[name="${firstErrorField}"]`,
+        );
+        if (errorElement) {
+          errorElement.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+
+        alert("Please fix the validation errors before submitting.");
+      } else {
+        console.error("API error:", err);
+        alert(
+          `Failed to ${isEditMode ? "update" : "create"} property. Please try again.`,
+        );
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const MdPinDropIcon = MdLocationOn;
+
+  // Helper function to get error message for a field
+  const getFieldError = (fieldName: string) => errors[fieldName];
+
+  if (isLoading) {
     return (
-        <div className="max-w-[1600px] mx-auto pb-20 fade-in-up"> {/* Re-added padding for mobile */}
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-lg">Loading property data...</div>
+      </div>
+    );
+  }
 
-            {/* Header - Responsive Flex */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-                <div className="flex items-center gap-3">
-                    <Link href="/properties" className="p-2 rounded-lg hover:bg-black/5 transition-colors shrink-0">
-                        <MdArrowBack size={22} color={currentTheme.textColor} />
-                    </Link>
-                    <div>
-                        <h1 className="text-xl font-bold" style={{ color: currentTheme.headingColor }}>Add New Property</h1>
-                        <p className="text-xs opacity-60" style={{ color: currentTheme.textColor }}>Create a new listing</p>
-                    </div>
-                </div>
-                <div className="flex gap-3 w-full md:w-auto">
-                    <button onClick={() => router.push('/properties')} className="flex-1 md:flex-none px-4 py-2.5 rounded-lg border text-sm font-medium hover:bg-black/5 whitespace-nowrap" style={{ borderColor: currentTheme.borderColor, color: currentTheme.textColor }}>Cancel</button>
-                    <button onClick={handleSubmit} className="flex-1 md:flex-none px-5 py-2.5 rounded-lg text-white text-sm font-bold shadow-md hover:brightness-110 flex items-center justify-center gap-2 whitespace-nowrap" style={{ backgroundColor: currentTheme.primary }}>
-                        <MdSave size={18} />
-                        <span>Save Property</span>
-                    </button>
-                </div>
+  return (
+    <div className="max-w-[1600px] mx-auto pb-20 fade-in-up">
+      <PageHeader
+        backLink="/properties"
+        title={isEditMode ? "Edit Property" : "Add New Property"}
+        subtitle={
+          isEditMode ? "Update property details" : "Create a new listing"
+        }
+        actions={
+          <>
+            <Button
+              variant="secondary"
+              onClick={() => router.push("/properties")}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              onClick={handleSubmit}
+              icon={<MdSave size={18} />}
+              disabled={isSubmitting}
+            >
+              {isSubmitting
+                ? isEditMode
+                  ? "Updating..."
+                  : "Saving..."
+                : isEditMode
+                  ? "Update Property"
+                  : "Save Property"}
+            </Button>
+          </>
+        }
+      />
+
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* ADDRESS & SPECS */}
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+          <SectionCard stepNumber={1} title="Property Address">
+            <div className="grid grid-cols-12 gap-x-4 gap-y-5">
+              <div className="col-span-12 lg:col-span-8">
+                <InputField
+                  label="Street Address"
+                  icon={<MdLocationOn />}
+                  required
+                >
+                  <TextInput
+                    required
+                    name="street_address"
+                    placeholder="123 Main St"
+                    value={formData.street_address}
+                    onChange={handleChange}
+                  />
+                </InputField>
+                <ErrorMessage error={getFieldError("street_address")} />
+              </div>
+              <div className="col-span-12 lg:col-span-4">
+                <InputField label="Unit/Apt" icon={<MdApartment />} required>
+                  <TextInput
+                    required
+                    name="unit_apt"
+                    placeholder="Apt 4B"
+                    value={formData.unit_apt}
+                    onChange={handleChange}
+                  />
+                </InputField>
+                <ErrorMessage error={getFieldError("unit_apt")} />
+              </div>
+
+              <div className="col-span-12 sm:col-span-6">
+                <InputField label="City" icon={<MdLocationOn />} required>
+                  <TextInput
+                    required
+                    name="city"
+                    placeholder="City"
+                    value={formData.city}
+                    onChange={handleChange}
+                  />
+                </InputField>
+                <ErrorMessage error={getFieldError("city")} />
+              </div>
+              <div className="col-span-12 sm:col-span-6">
+                <InputField label="County" icon={<MdMap />} required>
+                  <TextInput
+                    required
+                    name="county"
+                    placeholder="County"
+                    value={formData.county}
+                    onChange={handleChange}
+                  />
+                </InputField>
+                <ErrorMessage error={getFieldError("county")} />
+              </div>
+
+              <div className="col-span-6 sm:col-span-6">
+                <InputField label="State" icon={<MdPlace />} required>
+                  <TextInput
+                    required
+                    name="state"
+                    placeholder="State"
+                    value={formData.state}
+                    onChange={handleChange}
+                  />
+                </InputField>
+                <ErrorMessage error={getFieldError("state")} />
+              </div>
+              <div className="col-span-6 sm:col-span-6">
+                <InputField label="Zip Code" icon={<MdPinDropIcon />} required>
+                  <TextInput
+                    required
+                    name="zip_code"
+                    placeholder="Zip"
+                    value={formData.zip_code}
+                    onChange={handleChange}
+                  />
+                </InputField>
+                <ErrorMessage error={getFieldError("zip_code")} />
+              </div>
+            </div>
+          </SectionCard>
+
+          <SectionCard stepNumber={2} title="Property Specs">
+            <div className="grid grid-cols-12 gap-x-4 gap-y-5">
+              <div className="col-span-12 sm:col-span-6">
+                <InputField label="Property Type" icon={<MdHome />} required>
+                  <SelectInput
+                    required
+                    name="property_type"
+                    value={formData.property_type}
+                    onChange={handleChange}
+                    options={propertyTypeOptions.map((opt) => opt.value)}
+                  />
+                </InputField>
+                <ErrorMessage error={getFieldError("property_type")} />
+              </div>
+              <div className="col-span-12 sm:col-span-6">
+                <InputField
+                  label="Year Built"
+                  icon={<MdCalendarToday />}
+                  required
+                >
+                  <TextInput
+                    required
+                    type="number"
+                    name="year_built"
+                    placeholder="2020"
+                    value={formData.year_built}
+                    onChange={handleChange}
+                  />
+                </InputField>
+                <ErrorMessage error={getFieldError("year_built")} />
+              </div>
+              <div className="col-span-12 sm:col-span-4">
+                <InputField label="Lot Size" icon={<MdAspectRatio />} required>
+                  <TextInput
+                    required
+                    name="lot_size"
+                    placeholder="0.25 acres"
+                    value={formData.lot_size}
+                    onChange={handleChange}
+                  />
+                </InputField>
+                <ErrorMessage error={getFieldError("lot_size")} />
+              </div>
+
+              <div className="col-span-12 sm:col-span-4">
+                <InputField label="Bedrooms" icon={<MdKingBed />} required>
+                  <TextInput
+                    required
+                    type="number"
+                    name="bedrooms"
+                    placeholder="3"
+                    value={formData.bedrooms}
+                    onChange={handleChange}
+                  />
+                </InputField>
+                <ErrorMessage error={getFieldError("bedrooms")} />
+              </div>
+              <div className="col-span-12 sm:col-span-4">
+                <InputField label="Bathrooms" icon={<MdBathtub />} required>
+                  <TextInput
+                    required
+                    type="number"
+                    name="bathrooms"
+                    placeholder="2"
+                    value={formData.bathrooms}
+                    onChange={handleChange}
+                  />
+                </InputField>
+                <ErrorMessage error={getFieldError("bathrooms")} />
+              </div>
+
+              <div className="col-span-12 sm:col-span-4">
+                <InputField
+                  label="Square Feet"
+                  icon={<MdSquareFoot />}
+                  required
+                >
+                  <TextInput
+                    required
+                    type="number"
+                    name="square_feet"
+                    placeholder="1500"
+                    value={formData.square_feet}
+                    onChange={handleChange}
+                  />
+                </InputField>
+                <ErrorMessage error={getFieldError("square_feet")} />
+              </div>
+
+              <div className="col-span-6 sm:col-span-4">
+                <InputField label="Garage" icon={<MdGarage />}>
+                  <TextInput
+                    required
+                    type="number"
+                    name="garage_spaces"
+                    placeholder="2"
+                    value={formData.garage_spaces}
+                    onChange={handleChange}
+                  />
+                </InputField>
+                <ErrorMessage error={getFieldError("garage_spaces")} />
+              </div>
+              <div className="col-span-6 sm:col-span-4">
+                <InputField label="Parking" icon={<MdDirectionsCar />}>
+                  <TextInput
+                    required
+                    type="number"
+                    name="parking_spaces"
+                    placeholder="4"
+                    value={formData.parking_spaces}
+                    onChange={handleChange}
+                  />
+                </InputField>
+                <ErrorMessage error={getFieldError("parking_spaces")} />
+              </div>
+            </div>
+          </SectionCard>
+        </div>
+
+        {/* CONDITION & FINANCIALS */}
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+          <SectionCard
+            stepNumber={3}
+            title="Condition"
+            bgColor="bg-orange-50"
+            textColor="text-orange-600"
+          >
+            <div className="grid grid-cols-12 gap-x-4 gap-y-5 mb-5">
+              <div className="col-span-12 sm:col-span-6">
+                <InputField
+                  label="Roof Age"
+                  required
+                  icon={<MdCalendarToday />}
+                >
+                  <TextInput
+                    required
+                    name="roof_age"
+                    placeholder="Yr"
+                    value={formData.roof_age}
+                    onChange={handleChange}
+                  />
+                </InputField>
+                <ErrorMessage error={getFieldError("roof_age")} />
+              </div>
+              <div className="col-span-12 sm:col-span-6">
+                <InputField
+                  label="Roof Status"
+                  required
+                  icon={<MdConstruction />}
+                >
+                  <SelectInput
+                    required
+                    name="roof_status"
+                    value={formData.roof_status}
+                    onChange={handleChange}
+                    options={roofStatusOptions.map((opt) => opt.value)}
+                  />
+                </InputField>
+                <ErrorMessage error={getFieldError("roof_status")} />
+              </div>
+              <div className="col-span-12">
+                <InputField label="Interior Condition" icon={<MdBrush />}>
+                  <SelectInput
+                    required
+                    name="interior_condition"
+                    value={formData.interior_condition}
+                    onChange={handleChange}
+                    options={interiorConditionOptions.map((opt) => opt.value)}
+                  />
+                </InputField>
+                <ErrorMessage error={getFieldError("interior_condition")} />
+              </div>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-6">
-
-                {/* --- ADDRESS & SPECS --- */}
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                    <div style={cardStyle}>
-                        <div className={sectionHeaderStyle} style={{ borderColor: currentTheme.borderColor }}>
-                            <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-sm">1</div>
-                            <h2 className="text-sm font-bold ml-1" style={{ color: currentTheme.headingColor }}>Property Address</h2>
-                        </div>
-                        <div className="grid grid-cols-12 gap-x-4 gap-y-5">
-                            <div className="col-span-12 lg:col-span-8">
-                                <InputField label="Street Address *" icon={<MdLocationOn />}>
-                                    <input required name="street_address" placeholder="123 Main St" value={formData.street_address} onChange={handleChange} className={inputStyle} style={{ backgroundColor: currentTheme.background, borderColor: currentTheme.borderColor, color: currentTheme.textColor }} />
-                                </InputField>
-                            </div>
-                            <div className="col-span-12 lg:col-span-4">
-                                <InputField label="Unit/Apt *" icon={<MdApartment />}>
-                                    <input required name="unit_apt" placeholder="Apt 4B" value={formData.unit_apt} onChange={handleChange} className={inputStyle} style={{ backgroundColor: currentTheme.background, borderColor: currentTheme.borderColor, color: currentTheme.textColor }} />
-                                </InputField>
-                            </div>
-
-                            <div className="col-span-12 sm:col-span-6">
-                                <InputField label="City *" icon={<MdLocationOn />}>
-                                    <input required name="city" placeholder="City" value={formData.city} onChange={handleChange} className={inputStyle} style={{ backgroundColor: currentTheme.background, borderColor: currentTheme.borderColor, color: currentTheme.textColor }} />
-                                </InputField>
-                            </div>
-                            <div className="col-span-12 sm:col-span-6">
-                                <InputField label="County *" icon={<MdMap />}>
-                                    <input required name="county" placeholder="County" value={formData.county} onChange={handleChange} className={inputStyle} style={{ backgroundColor: currentTheme.background, borderColor: currentTheme.borderColor, color: currentTheme.textColor }} />
-                                </InputField>
-                            </div>
-
-                            <div className="col-span-6 sm:col-span-6">
-                                <InputField label="State *" icon={<MdPlace />}>
-                                    <input required name="state" placeholder="State" value={formData.state} onChange={handleChange} className={inputStyle} style={{ backgroundColor: currentTheme.background, borderColor: currentTheme.borderColor, color: currentTheme.textColor }} />
-                                </InputField>
-                            </div>
-                            <div className="col-span-6 sm:col-span-6">
-                                <InputField label="Zip Code *" icon={<MdPinDropIcon />}>
-                                    <div className="absolute left-3 top-1/2 -translate-y-1/2 opacity-50 pointer-events-none" style={{ color: currentTheme.textColor }}>#</div>
-                                    <input required name="zip_code" placeholder="Zip" value={formData.zip_code} onChange={handleChange} className={inputStyle} style={{ backgroundColor: currentTheme.background, borderColor: currentTheme.borderColor, color: currentTheme.textColor }} />
-                                </InputField>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div style={cardStyle}>
-                        <div className={sectionHeaderStyle} style={{ borderColor: currentTheme.borderColor }}>
-                            <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-sm">2</div>
-                            <h2 className="text-sm font-bold ml-1" style={{ color: currentTheme.headingColor }}>Property Specs</h2>
-                        </div>
-                        <div className="grid grid-cols-12 gap-x-4 gap-y-5">
-                            <div className="col-span-12 sm:col-span-6">
-                                <InputField label="Property Type *" icon={<MdHome />}>
-                                    <select required name="property_type" value={formData.property_type} onChange={handleChange} className={inputStyle} style={{ backgroundColor: currentTheme.background, borderColor: currentTheme.borderColor, color: currentTheme.textColor }}>
-                                        <option>Residential</option><option>Commercial</option><option>Industrial</option><option>Land</option><option>Multi-Family</option><option>Single-Family</option>
-                                    </select>
-                                </InputField>
-                            </div>
-                            <div className="col-span-12 sm:col-span-6">
-                                <InputField label="Year Built *" icon={<MdCalendarToday />}>
-                                    <input required type="number" name="year_built" placeholder="Year" value={formData.year_built} onChange={handleChange} className={inputStyle} style={{ backgroundColor: currentTheme.background, borderColor: currentTheme.borderColor, color: currentTheme.textColor }} />
-                                </InputField>
-                            </div>
-
-                            {/* --- ROW 1: Lot Size, Beds, Baths (Stacked on mobile, Row on Tablet+) --- */}
-                            <div className="col-span-12 sm:col-span-4">
-                                <InputField label="Lot Size *" icon={<MdAspectRatio />}>
-                                    <input required name="lot_size" placeholder="SqFt/Acres" value={formData.lot_size} onChange={handleChange} className={inputStyle} style={{ backgroundColor: currentTheme.background, borderColor: currentTheme.borderColor, color: currentTheme.textColor }} />
-                                </InputField>
-                            </div>
-                            <div className="col-span-6 sm:col-span-4">
-                                <InputField label="Beds *" icon={<MdKingBed />}>
-                                    <input required type="number" name="bedrooms" placeholder="3" value={formData.bedrooms} onChange={handleChange} className={inputStyle} style={{ backgroundColor: currentTheme.background, borderColor: currentTheme.borderColor, color: currentTheme.textColor }} />
-                                </InputField>
-                            </div>
-                            <div className="col-span-6 sm:col-span-4">
-                                <InputField label="Baths *" icon={<MdBathtub />}>
-                                    <input required type="number" name="bathrooms" placeholder="2" value={formData.bathrooms} onChange={handleChange} className={inputStyle} style={{ backgroundColor: currentTheme.background, borderColor: currentTheme.borderColor, color: currentTheme.textColor }} />
-                                </InputField>
-                            </div>
-
-                            {/* --- ROW 2: Sq Ft, Garage, Parking --- */}
-                            <div className="col-span-12 sm:col-span-4">
-                                <InputField label="Sq Ft *" icon={<MdSquareFoot />}>
-                                    <input required type="number" name="square_feet" placeholder="2500" value={formData.square_feet} onChange={handleChange} className={inputStyle} style={{ backgroundColor: currentTheme.background, borderColor: currentTheme.borderColor, color: currentTheme.textColor }} />
-                                </InputField>
-                            </div>
-                            <div className="col-span-6 sm:col-span-4">
-                                <InputField label="Garage" icon={<MdGarage />}>
-                                    <input required type="number" name="garage_spaces" placeholder="2" value={formData.garage_spaces} onChange={handleChange} className={inputStyle} style={{ backgroundColor: currentTheme.background, borderColor: currentTheme.borderColor, color: currentTheme.textColor }} />
-                                </InputField>
-                            </div>
-                            <div className="col-span-6 sm:col-span-4">
-                                <InputField label="Parking" icon={<MdDirectionsCar />}>
-                                    <input required type="number" name="parking_spaces" placeholder="4" value={formData.parking_spaces} onChange={handleChange} className={inputStyle} style={{ backgroundColor: currentTheme.background, borderColor: currentTheme.borderColor, color: currentTheme.textColor }} />
-                                </InputField>
-                            </div>
-                        </div>
-                    </div>
+            <div className="flex-1">
+              <InputField label="Renovations Required?">
+                <div className="grid md:grid-cols-2 gap-3">
+                  {[
+                    { name: "exterior_paint_required", label: "Ext. Paint" },
+                    { name: "new_floor_required", label: "New Floors" },
+                    { name: "kitchen_renovation_required", label: "Kitchen" },
+                    {
+                      name: "bathroom_renovation_required",
+                      label: "Bathrooms",
+                    },
+                    { name: "drywall_repair_required", label: "Drywall" },
+                    { name: "interior_paint_required", label: "Int. Paint" },
+                  ].map((item) => (
+                    <CheckboxButton
+                      key={item.name}
+                      name={item.name}
+                      label={item.label}
+                      checked={(formData as any)[item.name]}
+                      onChange={handleCheckboxChange}
+                    />
+                  ))}
                 </div>
+              </InputField>
+            </div>
+          </SectionCard>
 
-                {/* --- CONDITION & FINANCIALS --- */}
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                    <div style={cardStyle}>
-                        <div className={sectionHeaderStyle} style={{ borderColor: currentTheme.borderColor }}>
-                            <div className="w-8 h-8 rounded-lg bg-orange-50 text-orange-600 flex items-center justify-center font-bold text-sm">3</div>
-                            <h2 className="text-sm font-bold ml-1" style={{ color: currentTheme.headingColor }}>Condition</h2>
-                        </div>
-                        <div className="grid grid-cols-12 gap-x-4 gap-y-5 mb-5">
-                            <div className="col-span-12 sm:col-span-6">
-                                <InputField label="Roof Age" icon={<MdCalendarToday />}>
-                                    <input required name="roof_age" placeholder="Yr" value={formData.roof_age} onChange={handleChange} className={inputStyle} style={{ backgroundColor: currentTheme.background, borderColor: currentTheme.borderColor, color: currentTheme.textColor }} />
-                                </InputField>
-                            </div>
-                            <div className="col-span-12 sm:col-span-6">
-                                <InputField label="Roof Status" icon={<MdConstruction />}>
-                                    <select required name="roof_status" value={formData.roof_status} onChange={handleChange} className={inputStyle} style={{ backgroundColor: currentTheme.background, borderColor: currentTheme.borderColor, color: currentTheme.textColor }}>
-                                        <option>Excellent</option><option>Good</option><option>Fair</option><option>Poor</option><option>Replace</option>
-                                    </select>
-                                </InputField>
-                            </div>
-                            <div className="col-span-12 md:col-span-12">
-                                <InputField label="Interior Condition" icon={<MdBrush />}>
-                                    <select required name="interior_condition" value={formData.interior_condition} onChange={handleChange} className={inputStyle} style={{ backgroundColor: currentTheme.background, borderColor: currentTheme.borderColor, color: currentTheme.textColor }}>
-                                        <option>Excellent</option><option>Good</option><option>Fair</option><option>Poor</option>
-                                    </select>
-                                </InputField>
-                            </div>
-                        </div>
-                        <div className="flex-1">
-                            <label className={labelStyle} style={{ color: currentTheme.headingColor }}>Renovations Required?</label>
-                            <div className="grid md:grid-cols-2 gap-3">
-                                {[
-                                    { name: 'exterior_paint_required', label: 'Ext. Paint' },
-                                    { name: 'new_floor_required', label: 'New Floors' },
-                                    { name: 'kitchen_renovation_required', label: 'Kitchen' },
-                                    { name: 'bathroom_renovation_required', label: 'Bathrooms' },
-                                    { name: 'drywall_repair_required', label: 'Drywall' },
-                                    { name: 'interior_paint_required', label: 'Int. Paint' },
-                                ].map((item) => {
-                                    const isChecked = (formData as any)[item.name];
-                                    return (
-                                        <label key={item.name}
-                                            className={`flex items-center gap-3 px-4 py-3 rounded-xl border cursor-pointer transition-all w-full select-none
-                                            ${isChecked ? 'shadow-md transform scale-[1.02]' : 'hover:bg-black/5'}`}
-                                            style={{
-                                                borderColor: isChecked ? 'transparent' : currentTheme.borderColor,
-                                                backgroundColor: isChecked ? currentTheme.primary : 'transparent',
-                                                color: isChecked ? '#fff' : currentTheme.textColor
-                                            }}
-                                        >
-                                            <div className={`text-xl ${isChecked ? 'text-white' : 'opacity-40'}`}>
-                                                {isChecked ? <MdCheckBox /> : <MdCheckBoxOutlineBlank />}
-                                            </div>
-                                            <span className={`text-sm font-bold ${isChecked ? 'text-white' : ''}`}>
-                                                {item.label}
-                                            </span>
-                                            <input type="checkbox" name={item.name} checked={isChecked} onChange={handleCheckboxChange} className="hidden" />
-                                        </label>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    </div>
+          <SectionCard
+            stepNumber={4}
+            title="Financials"
+            bgColor="bg-emerald-50"
+            textColor="text-emerald-600"
+          >
+            <div className="grid grid-cols-12 gap-x-4 gap-y-5">
+              <div className="col-span-12 sm:col-span-6">
+                <InputField
+                  label="Listing Price"
+                  icon={<span className="font-bold">$</span>}
+                  required
+                >
+                  <TextInput
+                    required
+                    type="number"
+                    name="listing_price"
+                    placeholder="0"
+                    value={formData.listing_price}
+                    onChange={handleChange}
+                    style={{ fontWeight: "bold" }}
+                  />
+                </InputField>
+                <ErrorMessage error={getFieldError("listing_price")} />
+              </div>
+              <div className="col-span-12 sm:col-span-6">
+                <InputField
+                  label="Asking Price"
+                  icon={<span className="font-bold">$</span>}
+                  required
+                >
+                  <TextInput
+                    required
+                    type="number"
+                    name="asking_price"
+                    placeholder="0"
+                    value={formData.asking_price}
+                    onChange={handleChange}
+                    style={{ fontWeight: "bold" }}
+                  />
+                </InputField>
+                <ErrorMessage error={getFieldError("asking_price")} />
+              </div>
 
-                    <div style={cardStyle}>
-                        <div className={sectionHeaderStyle} style={{ borderColor: currentTheme.borderColor }}>
-                            <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-sm">4</div>
-                            <h2 className="text-sm font-bold ml-1" style={{ color: currentTheme.headingColor }}>Financials</h2>
-                        </div>
+              <div className="col-span-12">
+                <InputField
+                  label="Transaction Type"
+                  icon={<MdRealEstateAgent />}
+                  required
+                >
+                  <SelectInput
+                    required
+                    name="transaction_type"
+                    value={formData.transaction_type}
+                    onChange={handleChange}
+                    options={transactionTypeOptions.map((opt) => opt.value)}
+                  />
+                </InputField>
+                <ErrorMessage error={getFieldError("transaction_type")} />
+              </div>
 
-                        <div className="grid grid-cols-12 gap-x-4 gap-y-5">
-                            <div className="col-span-12 sm:col-span-6">
-                                <InputField label="Listing Price *" icon={<span className="font-bold">$</span>}>
-                                    <input required type="number" name="listing_price" placeholder="0" value={formData.listing_price} onChange={handleChange} className={inputStyle} style={{ backgroundColor: currentTheme.background, borderColor: currentTheme.borderColor, color: currentTheme.textColor, fontWeight: 'bold' }} />
-                                </InputField>
-                            </div>
-                            <div className="col-span-12 sm:col-span-6">
-                                <InputField label="Asking Price *" icon={<span className="font-bold">$</span>}>
-                                    <input required type="number" name="asking_price" placeholder="0" value={formData.asking_price} onChange={handleChange} className={inputStyle} style={{ backgroundColor: currentTheme.background, borderColor: currentTheme.borderColor, color: currentTheme.textColor, fontWeight: 'bold' }} />
-                                </InputField>
-                            </div>
-
-                            <div className="col-span-12">
-                                <InputField label="Transaction Type *" icon={<MdRealEstateAgent />}>
-                                    <select required name="transaction_type" value={formData.transaction_type} onChange={handleChange} className={inputStyle} style={{ backgroundColor: currentTheme.background, borderColor: currentTheme.borderColor, color: currentTheme.textColor }}>
-                                        <option>Cash</option><option>Financing</option><option>Assignment</option><option>Wholesale</option>
-                                    </select>
-                                </InputField>
-                            </div>
-
-                            {[
-                                { n: 'arv', l: 'ARV', i: <MdLocalOffer /> }, { n: 'repair_estimate', l: 'Repair Estimate', i: <MdBuild /> },
-                                { n: 'holding_costs', l: 'Holding Costs', i: <MdMoneyOff /> }, { n: 'assignment_fee', l: 'Assignment Fee', i: <MdAttachMoney /> }
-                            ].map(f => (
-                                <div key={f.n} className="col-span-12 sm:col-span-6">
-                                    <InputField label={`${f.l} *`} icon={f.i}>
-                                        <input required type="number" name={f.n} placeholder="0" value={(formData as any)[f.n]} onChange={handleChange} className={inputStyle} style={{ backgroundColor: currentTheme.background, borderColor: currentTheme.borderColor, color: currentTheme.textColor }} />
-                                    </InputField>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
+              {[
+                { n: "arv", l: "ARV", i: <MdLocalOffer /> },
+                { n: "repair_estimate", l: "Repair Estimate", i: <MdBuild /> },
+                { n: "holding_costs", l: "Holding Costs", i: <MdMoneyOff /> },
+                {
+                  n: "assignment_fee",
+                  l: "Assignment Fee",
+                  i: <MdAttachMoney />,
+                },
+              ].map((f) => (
+                <div key={f.n} className="col-span-12 sm:col-span-6">
+                  <InputField label={f.l} icon={f.i} required>
+                    <TextInput
+                      required
+                      type="number"
+                      name={f.n}
+                      placeholder="0"
+                      value={(formData as any)[f.n]}
+                      onChange={handleChange}
+                    />
+                  </InputField>
+                  <ErrorMessage error={getFieldError(f.n)} />
                 </div>
-
-                {/* --- INFO & IMAGES --- */}
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                    <div style={cardStyle}>
-                        <div className={sectionHeaderStyle} style={{ borderColor: currentTheme.borderColor }}>
-                            <div className="w-8 h-8 rounded-lg bg-gray-100 text-gray-600 flex items-center justify-center font-bold text-sm">5</div>
-                            <h2 className="text-sm font-bold ml-1" style={{ color: currentTheme.headingColor }}>Additional Info</h2>
-                        </div>
-                        <div className="flex flex-col gap-5 flex-1">
-                            <div className="flex-1">
-                                <label className={labelStyle} style={{ color: currentTheme.headingColor }}>Property Description</label>
-                                <textarea name="property_description" placeholder="Description..." value={formData.property_description} onChange={handleChange} className="w-full h-24 rounded-lg border p-3 text-sm outline-none focus:border-blue-500 resize-none" style={{ backgroundColor: currentTheme.background, borderColor: currentTheme.borderColor, color: currentTheme.textColor }}></textarea>
-                            </div>
-                            <div className="flex-1">
-                                <label className={labelStyle} style={{ color: currentTheme.headingColor }}>Seller Notes (Private)</label>
-                                <textarea name="seller_notes" placeholder="Notes..." value={formData.seller_notes} onChange={handleChange} className="w-full h-20 rounded-lg border p-3 text-sm outline-none focus:border-blue-500 resize-none" style={{ backgroundColor: currentTheme.background, borderColor: currentTheme.borderColor, color: currentTheme.textColor }}></textarea>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div style={cardStyle}>
-                        <div className={sectionHeaderStyle} style={{ borderColor: currentTheme.borderColor }}>
-                            <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-sm">6</div>
-                            <h2 className="text-sm font-bold ml-1" style={{ color: currentTheme.headingColor }}>Property Images</h2>
-                        </div>
-
-                        <div className="border-2 border-dashed rounded-xl flex-1 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-black/5 transition-all group min-h-[200px]" style={{ borderColor: currentTheme.borderColor }}>
-                            <input type="file" multiple onChange={handleFileChange} className="hidden" id="file-upload-smart" />
-                            <label htmlFor="file-upload-smart" className="w-full h-full flex flex-col items-center justify-center cursor-pointer p-6">
-                                <div className="w-16 h-16 rounded-full bg-blue-50 mx-auto flex items-center justify-center mb-4 text-blue-500 group-hover:scale-110 transition-transform">
-                                    <MdCloudUpload size={32} />
-                                </div>
-                                <h3 className="text-sm font-bold mb-1" style={{ color: currentTheme.headingColor }}>Drop files here or click to upload</h3>
-                                {formData.images.length > 0 ? (
-                                    <div className="mt-2 text-xs font-bold bg-green-100 text-green-700 px-3 py-1 rounded-full">
-                                        {formData.images.length} files selected
-                                    </div>
-                                ) : (
-                                    <p className="text-xs opacity-50" style={{ color: currentTheme.textColor }}>Support for bulk upload (Max 5MB)</p>
-                                )}
-                            </label>
-                        </div>
-                    </div>
-                </div>
-
-            </form>
+              ))}
+            </div>
+          </SectionCard>
         </div>
-    );
-}
 
-// Fallback if MdPinDropIcon not explicit in react-icons/md
-const MdPinDropIcon = (props: any) => <MdLocationOn {...props} />;
+        {/* INFO & IMAGES */}
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+          <SectionCard
+            stepNumber={5}
+            title="Additional Info"
+            bgColor="bg-gray-100"
+            textColor="text-gray-600"
+          >
+            <div className="flex flex-col gap-5 flex-1">
+              <div className="flex-1">
+                <InputField label="Property Description">
+                  <TextArea
+                    name="property_description"
+                    placeholder="Description..."
+                    value={formData.property_description}
+                    onChange={handleChange}
+                    className="h-24"
+                  />
+                </InputField>
+                <ErrorMessage error={getFieldError("property_description")} />
+              </div>
+              <div className="flex-1">
+                <InputField label="Seller Notes (Private)">
+                  <TextArea
+                    name="seller_notes"
+                    placeholder="Notes..."
+                    value={formData.seller_notes}
+                    onChange={handleChange}
+                    className="h-20"
+                  />
+                </InputField>
+                <ErrorMessage error={getFieldError("seller_notes")} />
+              </div>
+            </div>
+          </SectionCard>
+
+          <SectionCard
+            stepNumber={6}
+            title="Property Images"
+            bgColor="bg-indigo-50"
+            textColor="text-indigo-600"
+          >
+            <FileUpload
+              id="file-upload-smart"
+              onChange={handleFileChange}
+              fileCount={formData.images.length}
+            />
+            {isEditMode && formData.images.length === 0 && (
+              <p className="mt-2 text-sm text-gray-500">
+                No new images selected. Existing images will be preserved.
+              </p>
+            )}
+            <ErrorMessage error={getFieldError("images")} />
+          </SectionCard>
+        </div>
+      </form>
+    </div>
+  );
+}
