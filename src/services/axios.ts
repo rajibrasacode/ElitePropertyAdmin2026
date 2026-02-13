@@ -9,29 +9,29 @@ const BASE_URL = "http://localhost:4000";
 // PUBLIC API
 // ===================
 export const api = axios.create({
-    baseURL: BASE_URL,
-    headers: {
-        "Content-Type": "application/json",
-    },
+  baseURL: BASE_URL,
+  headers: {
+    "Content-Type": "application/json",
+  },
 });
 
 // ===================
 // PRIVATE API
 // ===================
 export const privetApi = axios.create({
-    baseURL: BASE_URL,
+  baseURL: BASE_URL,
 });
 
 // ===================
 // REQUEST INTERCEPTOR
 // ===================
 const attachToken = (config: InternalAxiosRequestConfig) => {
-    if (typeof window !== "undefined") {
-        const token = localStorage.getItem("accessToken");
-        if (token) {
-            config.headers.Authorization = `Bearer ${token}`;
-        }
+  if (typeof window !== "undefined") {
+    const token = localStorage.getItem("accessToken");
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
     }
+  }
 
     // let browser set multipart boundary
     if (config.data instanceof FormData) {
@@ -40,16 +40,14 @@ const attachToken = (config: InternalAxiosRequestConfig) => {
         }
     }
 
-    return config;
+  return config;
 };
 
 // Casting to any to avoid strict type mismatch if definitions vary slightly
 api.interceptors.request.use(attachToken as any, Promise.reject);
 privetApi.interceptors.request.use(attachToken as any, Promise.reject);
 
-// ===================
-// RESPONSE INTERCEPTOR (REFRESH LOGIC)
-// ===================
+// RESPONSE INTERCEPTOR
 const handleResponseError = async (error: any) => {
     const originalRequest = error.config;
     const requestUrl = originalRequest?.url || "";
@@ -107,12 +105,23 @@ const handleResponseError = async (error: any) => {
         }
     }
 
+  // Do not intercept login errors
+  if (originalRequest.url?.includes("/auth/login")) {
     return Promise.reject(error);
+  }
+
+  if (error.response?.status === 401) {
+    // token invalid or expired
+    localStorage.clear();
+    window.location.href = "/login";
+  }
+
+  return Promise.reject(error);
 };
 
 api.interceptors.response.use((response) => response, handleResponseError);
 
 privetApi.interceptors.response.use(
-    (response) => response,
-    handleResponseError,
+  (response) => response,
+  handleResponseError,
 );
