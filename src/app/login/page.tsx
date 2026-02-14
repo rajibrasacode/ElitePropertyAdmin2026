@@ -26,7 +26,13 @@ import { showSuccessToast, showErrorToast } from "@/utils/toast";
 export default function LoginPage() {
     const router = useRouter();
     const { currentTheme } = useTheme();
-    const { login: authLogin } = useAuth(); // Renamed to avoid naming conflict
+    const { login: authLogin, isAuthenticated } = useAuth(); // Renamed to avoid naming conflict
+
+    useEffect(() => {
+        if (isAuthenticated) {
+            router.replace('/dashboard');
+        }
+    }, [isAuthenticated, router]);
     const [showPassword, setShowPassword] = useState(false);
     const [mounted, setMounted] = useState(false);
     const [focusedField, setFocusedField] = useState<string | null>(null);

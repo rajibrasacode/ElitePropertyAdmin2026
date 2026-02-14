@@ -12,9 +12,16 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
     const [collapsed, setCollapsed] = useState(false);
     const [mobileOpen, setMobileOpen] = useState(false);
     const { currentTheme } = useTheme(); // Getting current theme
-    const { user, logout } = useAuth(); // Get user from AuthContext
+    const { user, logout, isAuthenticated } = useAuth(); // Get user from AuthContext
     const router = useRouter();
     const [searchQuery, setSearchQuery] = useState("");
+
+    // Protect Dashboard - Redirect to login if not authenticated
+    React.useEffect(() => {
+        if (!isAuthenticated) {
+            router.replace('/login');
+        }
+    }, [isAuthenticated, router]);
 
     const handleSearch = () => {
         if (searchQuery.trim()) {
@@ -29,7 +36,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
     const handleLogout = () => {
         if (confirm('Are you sure you want to logout?')) {
             logout();
-            router.push('/login');
+            router.replace('/login');
         }
     };
 
