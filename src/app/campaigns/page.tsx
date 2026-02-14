@@ -1,9 +1,10 @@
 "use client";
 import React from "react";
-import { MdAdd, MdSearch, MdMoreHoriz, MdCampaign, MdCheckCircle, MdPauseCircle, MdSchedule, MdBarChart, MdEdit, MdPlayArrow, MdDelete } from "react-icons/md";
+import { MdAdd, MdSearch, MdMoreHoriz, MdCampaign, MdCheckCircle, MdPauseCircle, MdSchedule, MdBarChart, MdEdit, MdPlayArrow, MdDelete, MdChevronLeft, MdChevronRight } from "react-icons/md";
 import { useTheme } from "@/providers/ThemeProvider";
 
 import { useRouter } from "next/navigation";
+import { ConfirmModal } from "@/components/common/ConfirmModal";
 import { getCampaignsService, deleteCampaignService, updateCampaignService } from "@/services/campaigns.service";
 
 export default function CampaignsPage() {
@@ -12,7 +13,10 @@ export default function CampaignsPage() {
     const [campaigns, setCampaigns] = React.useState<any[]>([]);
     const [loading, setLoading] = React.useState(true);
     const [error, setError] = React.useState<string | null>(null);
+    const [searchTerm, setSearchTerm] = React.useState("");
+
     const [activeMenuId, setActiveMenuId] = React.useState<number | null>(null);
+    const [deleteId, setDeleteId] = React.useState<number | null>(null);
     const menuRef = React.useRef<HTMLDivElement>(null);
 
     // Fetch Campaigns
@@ -20,6 +24,7 @@ export default function CampaignsPage() {
         setLoading(true);
         setError(null);
         try {
+            // Fetch all campaigns without pagination
             const response = await getCampaignsService();
             const list = Array.isArray(response?.data) ? response.data : [];
 
@@ -69,15 +74,20 @@ export default function CampaignsPage() {
         setActiveMenuId(activeMenuId === id ? null : id);
     };
 
-    const handleDelete = async (id: number) => {
-        if (!confirm("Are you sure you want to delete this campaign?")) return;
+    const handleDeleteClick = (id: number) => {
+        setDeleteId(id);
+        setActiveMenuId(null);
+    };
+
+    const confirmDelete = async () => {
+        if (!deleteId) return;
         try {
-            await deleteCampaignService(id);
-            setCampaigns(prev => prev.filter(c => c.id !== id));
-            setActiveMenuId(null);
+            await deleteCampaignService(deleteId);
+            setCampaigns(prev => prev.filter(c => c.id !== deleteId));
+            setDeleteId(null);
         } catch (err) {
             console.error("Failed to delete campaign:", err);
-            alert("Failed to delete campaign");
+            // Optionally show an error toast here
         }
     };
 
@@ -90,6 +100,32 @@ export default function CampaignsPage() {
         } catch (err) {
             console.error("Failed to update status:", err);
             alert("Failed to update status");
+        }
+    };
+
+    // Filtered Campaigns
+    const filteredCampaigns = campaigns.filter(campaign =>
+        campaign.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        campaign.campaign_type.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    // Pagination Logic
+    const [currentPage, setCurrentPage] = React.useState(1);
+    const itemsPerPage = 9;
+
+    // Reset page when search term changes
+    React.useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm]);
+
+    const totalPages = Math.ceil(filteredCampaigns.length / itemsPerPage);
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const currentCampaigns = filteredCampaigns.slice(startIndex, startIndex + itemsPerPage);
+
+    const handlePageChange = (page: number) => {
+        if (page >= 1 && page <= totalPages) {
+            setCurrentPage(page);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         }
     };
 
@@ -109,6 +145,8 @@ export default function CampaignsPage() {
                         <input
                             type="text"
                             placeholder="Search campaigns..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
                             className="pl-10 pr-4 py-2.5 border rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-100 w-64 transition-all"
                             style={{
                                 backgroundColor: currentTheme.cardBg,
@@ -138,12 +176,12 @@ export default function CampaignsPage() {
                     <div className="col-span-full py-20 text-center text-red-500">
                         {error}
                     </div>
-                ) : campaigns.length === 0 ? (
+                ) : filteredCampaigns.length === 0 ? (
                     <div className="col-span-full py-20 text-center opacity-60">
-                        <p>No campaigns found. Create one to get started.</p>
+                        <p>{searchTerm ? "No campaigns match your search." : "No campaigns found. Create one to get started."}</p>
                     </div>
                 ) : (
-                    campaigns.map((campaign) => (
+                    currentCampaigns.map((campaign) => (
                         <div
                             key={campaign.id}
                             className="p-6 rounded-2xl border shadow-sm hover:shadow-md transition-all group backdrop-blur-md relative"
@@ -189,6 +227,7 @@ export default function CampaignsPage() {
                                         >
                                             <div className="flex flex-col py-1">
                                                 <button
+                                                    onClick={() => router.push(`/campaigns/analytics/${campaign.id}`)}
                                                     className="w-full px-4 py-2.5 text-left text-sm font-semibold hover:bg-black/5 transition-colors flex items-center gap-2"
                                                     style={{ color: currentTheme.headingColor }}
                                                 >
@@ -213,7 +252,10 @@ export default function CampaignsPage() {
                                                 </button>
                                                 <div className="h-px mx-4 my-1 opacity-20" style={{ backgroundColor: currentTheme.borderColor }} />
                                                 <button
-                                                    onClick={() => handleDelete(campaign.id)}
+                                                    onClick={(e) => {
+                                                        toggleMenu(campaign.id, e);
+                                                        handleDeleteClick(campaign.id);
+                                                    }}
                                                     className="w-full px-4 py-2.5 text-left text-sm font-semibold hover:bg-red-50 dark:hover:bg-red-900/20 text-red-500 transition-colors flex items-center gap-2"
                                                 >
                                                     <MdDelete size={18} />
@@ -259,8 +301,95 @@ export default function CampaignsPage() {
                                 </p>
                             </div>
                         </div>
-                    )))}
+                    ))
+                )}
             </div>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+                <div className="flex flex-col sm:flex-row justify-between items-center gap-4 py-6 border-t mt-8" style={{ borderColor: currentTheme.borderColor }}>
+
+                    <div className="text-sm opacity-70" style={{ color: currentTheme.textColor }}>
+                        Showing <span className="font-bold">{(currentPage - 1) * itemsPerPage + 1}</span> to <span className="font-bold">{Math.min(currentPage * itemsPerPage, filteredCampaigns.length)}</span> of <span className="font-bold">{filteredCampaigns.length}</span> entries
+                    </div>
+
+                    <div className="flex items-center gap-1">
+                        <button
+                            onClick={() => handlePageChange(currentPage - 1)}
+                            disabled={currentPage === 1}
+                            className="p-2 rounded-lg border hover:bg-black/5 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                            style={{
+                                borderColor: currentTheme.borderColor,
+                                color: currentTheme.headingColor
+                            }}
+                        >
+                            <MdChevronLeft size={20} />
+                        </button>
+
+                        {/* Page Numbers Logic */}
+                        {(() => {
+                            let startPage = 1;
+                            let endPage = totalPages;
+
+                            if (totalPages > 5) {
+                                if (currentPage <= 3) {
+                                    startPage = 1;
+                                    endPage = 5;
+                                } else if (currentPage >= totalPages - 2) {
+                                    startPage = totalPages - 4;
+                                    endPage = totalPages;
+                                } else {
+                                    startPage = currentPage - 2;
+                                    endPage = currentPage + 2;
+                                }
+                            }
+
+                            const pages = [];
+                            for (let i = startPage; i <= endPage; i++) {
+                                pages.push(i);
+                            }
+
+                            return pages.map((pageNum) => (
+                                <button
+                                    key={pageNum}
+                                    onClick={() => handlePageChange(pageNum)}
+                                    className={`w-9 h-9 flex items-center justify-center rounded-lg text-sm font-bold transition-all ${currentPage === pageNum
+                                        ? 'text-white shadow-md transform scale-105'
+                                        : 'hover:bg-black/5'
+                                        }`}
+                                    style={{
+                                        backgroundColor: currentPage === pageNum ? currentTheme.primary : 'transparent',
+                                        color: currentPage === pageNum ? '#fff' : currentTheme.textColor
+                                    }}
+                                >
+                                    {pageNum}
+                                </button>
+                            ));
+                        })()}
+
+                        <button
+                            onClick={() => handlePageChange(currentPage + 1)}
+                            disabled={currentPage === totalPages}
+                            className="p-2 rounded-lg border hover:bg-black/5 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                            style={{
+                                borderColor: currentTheme.borderColor,
+                                color: currentTheme.headingColor
+                            }}
+                        >
+                            <MdChevronRight size={20} />
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            <ConfirmModal
+                isOpen={!!deleteId}
+                onClose={() => setDeleteId(null)}
+                onConfirm={confirmDelete}
+                title="Delete Campaign"
+                message="Are you sure you want to delete this campaign? This action cannot be undone."
+                confirmLabel="Delete Campaign"
+            />
         </div>
     );
 }

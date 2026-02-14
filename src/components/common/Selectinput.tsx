@@ -1,25 +1,35 @@
 import React from "react";
 import { useTheme } from "@/providers/ThemeProvider";
 
-interface SelectInputProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
-  name: string;
-  options: string[];
+interface SelectOption {
+  label: string;
+  value: string | number;
 }
 
-export const SelectInput: React.FC<SelectInputProps> = ({
+interface SelectInputProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
+  name: string;
+  options: (string | SelectOption)[];
+  placeholder?: string;
+}
+
+export const SelectInput = React.forwardRef<HTMLSelectElement, SelectInputProps>(({
   name,
   options,
+  placeholder = "Select an option",
+  className,
   ...props
-}) => {
+}, ref) => {
   const { currentTheme } = useTheme();
 
   const inputStyle = `
         w-full h-[42px] rounded-lg border px-3 pl-10 text-sm outline-none transition-all
         focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500
+        ${className || ''}
     `;
 
   return (
     <select
+      ref={ref}
       name={name}
       className={inputStyle}
       style={{
@@ -29,12 +39,17 @@ export const SelectInput: React.FC<SelectInputProps> = ({
       }}
       {...props}
     >
-      <option value="" disabled>
-        Select an option
+      <option value="">
+        {placeholder}
       </option>
-      {options.map((option) => (
-        <option key={option}>{option}</option>
-      ))}
+      {options.map((option, index) => {
+        if (typeof option === 'object') {
+          return <option key={option.value} value={option.value}>{option.label}</option>;
+        }
+        return <option key={option} value={option}>{option}</option>;
+      })}
     </select>
   );
-};
+});
+
+SelectInput.displayName = "SelectInput";

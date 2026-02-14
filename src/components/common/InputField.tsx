@@ -6,6 +6,7 @@ interface InputFieldProps {
   icon?: ReactNode;
   children: ReactNode;
   required?: boolean;
+  error?: string;
 }
 
 export const InputField: React.FC<InputFieldProps> = ({
@@ -13,6 +14,7 @@ export const InputField: React.FC<InputFieldProps> = ({
   icon,
   children,
   required = false,
+  error,
 }) => {
   const { currentTheme } = useTheme();
 
@@ -40,6 +42,11 @@ export const InputField: React.FC<InputFieldProps> = ({
         )}
         {children}
       </div>
+      {error && (
+        <p className="text-red-500 text-xs mt-1 font-medium  p-1 rounded">
+          {error}
+        </p>
+      )}
     </div>
   );
 };

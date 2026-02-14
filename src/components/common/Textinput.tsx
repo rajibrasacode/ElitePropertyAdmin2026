@@ -1,11 +1,11 @@
-import React from "react";
+import React, { forwardRef } from "react";
 import { useTheme } from "@/providers/ThemeProvider";
 
 interface TextInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   name: string;
 }
 
-export const TextInput: React.FC<TextInputProps> = ({ name, ...props }) => {
+export const TextInput = forwardRef<HTMLInputElement, TextInputProps>(({ name, ...props }, ref) => {
   const { currentTheme } = useTheme();
 
   const inputStyle = `
@@ -15,6 +15,7 @@ export const TextInput: React.FC<TextInputProps> = ({ name, ...props }) => {
 
   return (
     <input
+      ref={ref}
       name={name}
       className={inputStyle}
       style={{
@@ -25,4 +26,6 @@ export const TextInput: React.FC<TextInputProps> = ({ name, ...props }) => {
       {...props}
     />
   );
-};
+});
+
+TextInput.displayName = "TextInput";

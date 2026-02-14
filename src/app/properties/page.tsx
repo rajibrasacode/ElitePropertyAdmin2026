@@ -4,8 +4,9 @@ import { MdAdd, MdSearch, MdFilterList, MdMoreHoriz, MdOutlineBedroomParent, MdO
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTheme } from "@/providers/ThemeProvider";
-import { getProperties } from "@/services/properties.service";
+import { getProperties, deletePropertyByIdService } from "@/services/properties.service";
 import { PropertyData } from "@/types/properties.types";
+import { ConfirmModal } from "@/components/common/ConfirmModal";
 
 export default function PropertiesPage() {
     const { currentTheme } = useTheme();
@@ -15,6 +16,11 @@ export default function PropertiesPage() {
     const [showFilters, setShowFilters] = useState(false);
     const [activeMenuId, setActiveMenuId] = useState<number | string | null>(null);
     const [error, setError] = useState<string | null>(null);
+
+    // Delete State
+    const [deleteId, setDeleteId] = useState<string | number | null>(null);
+    const [isDeleteLoading, setIsDeleteLoading] = useState(false);
+
     const [pagination, setPagination] = useState({
         page: 1,
         limit: 9,
@@ -116,8 +122,42 @@ export default function PropertiesPage() {
         setSearchQuery("");
     };
 
+    const initiateDelete = (id: number | string) => {
+        setDeleteId(id);
+        setActiveMenuId(null);
+    };
+
+    const confirmDelete = async () => {
+        if (!deleteId) return;
+        setIsDeleteLoading(true);
+        try {
+            await deletePropertyByIdService(String(deleteId));
+            setProperties(prev => prev.filter(p => p.id !== deleteId));
+            setPagination(prev => ({
+                ...prev,
+                total: Math.max(0, prev.total - 1)
+            }));
+            setDeleteId(null);
+        } catch (error) {
+            console.error("Failed to delete property:", error);
+            // Ideally show a toast here
+            alert("Failed to delete property. Please try again.");
+        } finally {
+            setIsDeleteLoading(false);
+        }
+    };
+
     return (
         <div className="max-w-[1600px] mx-auto space-y-6 pb-20">
+            <ConfirmModal
+                isOpen={!!deleteId}
+                onClose={() => !isDeleteLoading && setDeleteId(null)}
+                onConfirm={confirmDelete}
+                title="Delete Property"
+                message="Are you sure you want to delete this property? This action cannot be undone."
+                confirmLabel="Delete Property"
+                isLoading={isDeleteLoading}
+            />
 
             {/* Header */}
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 lg:gap-6">
@@ -418,7 +458,7 @@ export default function PropertiesPage() {
                                                             Review Property
                                                         </button>
                                                     </Link>
-                                                    <Link href={`/properties/edit`} className="w-full">
+                                                    <Link href={`/properties/edit/${property.id}`} className="w-full">
                                                         <button
                                                             className="w-full px-4 py-2.5 text-left text-sm font-semibold hover:bg-black/5 transition-colors flex items-center gap-2"
                                                             style={{ color: currentTheme.headingColor }}
@@ -443,6 +483,7 @@ export default function PropertiesPage() {
 
                                                     <div className="h-px bg-black/5 my-1" style={{ backgroundColor: currentTheme.borderColor }}></div>
                                                     <button
+                                                        onClick={() => initiateDelete(property.id)}
                                                         className="px-4 py-2.5 text-left text-sm font-semibold text-rose-500 hover:bg-rose-50 transition-colors flex items-center gap-2"
                                                     >
                                                         Delete Property

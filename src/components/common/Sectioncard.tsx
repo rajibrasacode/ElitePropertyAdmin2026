@@ -7,6 +7,7 @@ interface SectionCardProps {
   bgColor?: string;
   textColor?: string;
   children: ReactNode;
+  height?: string | number;
 }
 
 export const SectionCard: React.FC<SectionCardProps> = ({
@@ -15,6 +16,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
   bgColor = "bg-blue-50",
   textColor = "text-blue-600",
   children,
+  height = "100%",
 }) => {
   const { currentTheme } = useTheme();
 
@@ -23,7 +25,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
     border: `1px solid ${currentTheme.borderColor}`,
     borderRadius: "12px",
     padding: "24px",
-    height: "100%",
+    height,
     display: "flex",
     flexDirection: "column" as const,
   };
