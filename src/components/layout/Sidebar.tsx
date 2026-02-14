@@ -2,8 +2,9 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "@/providers/ThemeProvider";
+import { useAuth } from "@/providers/AuthProvider";
 import {
     MdDashboard,
     MdSecurity,
@@ -27,7 +28,9 @@ interface SidebarProps {
 
 const Sidebar: React.FC<SidebarProps> = ({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) => {
     const pathname = usePathname();
+    const router = useRouter();
     const { currentTheme } = useTheme();
+    const { logout } = useAuth();
 
     useEffect(() => {
         setMobileOpen(false);
@@ -165,7 +168,11 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, setCollapsed, mobileOpen, 
                         )}
 
                         {(!collapsed || mobileOpen) && (
-                            <button className="text-white/50 hover:text-rose-500 transition-colors p-1 rounded-md hover:bg-white/10">
+                            <button
+                                onClick={() => { logout(); router.push('/login'); }}
+                                className="text-white/50 hover:text-rose-500 transition-colors p-1 rounded-md hover:bg-white/10"
+                                title="Logout"
+                            >
                                 <MdLogout size={18} />
                             </button>
                         )}

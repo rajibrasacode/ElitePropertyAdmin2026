@@ -3,14 +3,24 @@
 import React, { useState } from "react";
 import Sidebar from "./Sidebar";
 import { MdSearch, MdNotifications, MdMail, MdMenu } from "react-icons/md";
+import { useRouter } from 'next/navigation';
 import { useTheme } from "@/providers/ThemeProvider"; // Importing useTheme
 import { useAuth } from "@/providers/AuthProvider";
+import TypewriterGreeting from "./TypewriterGreeting";
 
 const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
     const [collapsed, setCollapsed] = useState(false);
     const [mobileOpen, setMobileOpen] = useState(false);
     const { currentTheme } = useTheme(); // Getting current theme
-    const { user } = useAuth(); // Get user from AuthContext
+    const { user, logout } = useAuth(); // Get user from AuthContext
+    const router = useRouter();
+
+    const handleLogout = () => {
+        if (confirm('Are you sure you want to logout?')) {
+            logout();
+            router.push('/login');
+        }
+    };
 
     // Get initials or default to "A"
     const initials = user?.name ? user.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() : "A";
@@ -35,14 +45,15 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
                 {/* Header */}
                 <div className="sticky top-0 z-40 px-6 pt-4 pb-2">
                     <header
-                        className="h-[72px] px-6 rounded-2xl backdrop-blur-md border shadow-sm flex items-center justify-between transition-all duration-300"
+                        className="h-[72px] px-6 rounded-2xl backdrop-blur-md border shadow-sm flex items-center justify-between transition-all duration-300 relative"
                         style={{
                             backgroundColor: currentTheme.cardBg + 'E6', // Adding opacity
                             borderColor: currentTheme.borderColor
                         }}
                     >
 
-                        <div className="flex items-center gap-4">
+                        {/* Left Section: Menu & Greeting */}
+                        <div className="flex items-center gap-4 z-10">
                             <button
                                 onClick={() => setMobileOpen(true)}
                                 className="md:hidden hover:opacity-80"
@@ -52,26 +63,12 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
                             </button>
 
                             <div className="hidden sm:block">
-                                <h2 className="text-lg font-bold tracking-tight animate-typing overflow-hidden whitespace-nowrap border-r-4 border-r-blue-500 pr-1" style={{ color: currentTheme.headingColor }}>
-                                    Welcome Back, Rajib!
-                                </h2>
-                                {/* <style jsx>{`
-                                    @keyframes typing {
-                                        0% { width: 0 }
-                                        50% { width: 100% }
-                                        90% { width: 100% }
-                                        100% { width: 0 }
-                                    }
-                                    .animate-typing {
-                                        animation: typing 6s steps(40, end) infinite;
-                                        max-width: fit-content;
-                                    }
-                                `}</style> */}
+                                <TypewriterGreeting userName={user?.username || "Admin"} />
                             </div>
                         </div>
 
-                        {/* Search */}
-                        <div className="hidden md:flex items-center border rounded-lg px-4 py-2 w-80 transition-all focus-within:ring-2 focus-within:ring-blue-100 focus-within:border-blue-400"
+                        {/* Center Section: Search - Absolutely Positioned */}
+                        <div className="hidden md:flex absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 items-center border rounded-lg px-4 py-2 w-80 transition-all focus-within:ring-2 focus-within:ring-blue-100 focus-within:border-blue-400"
                             style={{
                                 backgroundColor: currentTheme.background,
                                 borderColor: currentTheme.borderColor
@@ -89,8 +86,8 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
                             />
                         </div>
 
-                        {/* Actions */}
-                        <div className="flex items-center gap-3">
+                        {/* Right Section: Actions */}
+                        <div className="flex items-center gap-3 z-10">
                             <button className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-black/5 transition-colors" style={{ color: currentTheme.textColor }}>
                                 <MdMail size={20} />
                             </button>
@@ -100,8 +97,10 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
                             </button>
                             <div className="h-8 w-px mx-1 bg-black/10"></div>
                             <div
+                                onClick={handleLogout}
                                 className="w-9 h-9 rounded-lg text-white flex items-center justify-center font-bold text-xs shadow-md cursor-pointer hover:brightness-110"
                                 style={{ backgroundColor: currentTheme.primary }}
+                                title="Click to Logout"
                             >
                                 {initials}
                             </div>
