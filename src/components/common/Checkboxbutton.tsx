@@ -2,25 +2,22 @@ import React from "react";
 import { useTheme } from "@/providers/ThemeProvider";
 import { MdCheckBox, MdCheckBoxOutlineBlank } from "react-icons/md";
 
-interface CheckboxButtonProps {
-  name: string;
+interface CheckboxButtonProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label: string;
-  checked: boolean;
-  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }
 
 export const CheckboxButton: React.FC<CheckboxButtonProps> = ({
-  name,
   label,
+  className,
   checked,
-  onChange,
+  ...props
 }) => {
   const { currentTheme } = useTheme();
 
   return (
     <label
       className={`flex items-center gap-3 px-4 py-3 rounded-xl border cursor-pointer transition-all w-full select-none
-            ${checked ? "shadow-md transform scale-[1.02]" : "hover:bg-black/5"}`}
+            ${checked ? "shadow-md transform scale-[1.02]" : "hover:bg-black/5"} ${className || ''}`}
       style={{
         borderColor: checked ? "transparent" : currentTheme.borderColor,
         backgroundColor: checked ? currentTheme.primary : "transparent",
@@ -35,10 +32,9 @@ export const CheckboxButton: React.FC<CheckboxButtonProps> = ({
       </span>
       <input
         type="checkbox"
-        name={name}
         checked={checked}
-        onChange={onChange}
         className="hidden"
+        {...props}
       />
     </label>
   );

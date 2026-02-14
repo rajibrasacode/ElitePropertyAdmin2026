@@ -6,12 +6,12 @@ interface TextAreaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement
   required?: boolean;
 }
 
-export const TextArea: React.FC<TextAreaProps> = ({
+export const TextArea = React.forwardRef<HTMLTextAreaElement, TextAreaProps>(({
   name,
   className = "",
   required = false,
   ...props
-}) => {
+}, ref) => {
   const { currentTheme } = useTheme();
 
   const textareaStyle = `
@@ -22,6 +22,7 @@ export const TextArea: React.FC<TextAreaProps> = ({
 
   return (
     <textarea
+      ref={ref}
       name={name}
       className={textareaStyle}
       style={{
@@ -32,4 +33,6 @@ export const TextArea: React.FC<TextAreaProps> = ({
       {...props}
     />
   );
-};
+});
+
+TextArea.displayName = "TextArea";

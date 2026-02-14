@@ -18,6 +18,7 @@ import {
     MdPeople,
     MdCampaign
 } from "react-icons/md";
+import { ConfirmModal } from "../common/ConfirmModal";
 
 interface SidebarProps {
     collapsed: boolean;
@@ -31,6 +32,13 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, setCollapsed, mobileOpen, 
     const router = useRouter();
     const { currentTheme } = useTheme();
     const { logout } = useAuth();
+    const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
+
+    const handleLogoutConfirm = () => {
+        logout();
+        router.push('/login');
+        setIsLogoutModalOpen(false);
+    };
 
     useEffect(() => {
         setMobileOpen(false);
@@ -169,7 +177,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, setCollapsed, mobileOpen, 
 
                         {(!collapsed || mobileOpen) && (
                             <button
-                                onClick={() => { logout(); router.push('/login'); }}
+                                onClick={() => setIsLogoutModalOpen(true)}
                                 className="text-white/50 hover:text-rose-500 transition-colors p-1 rounded-md hover:bg-white/10"
                                 title="Logout"
                             >
@@ -192,6 +200,16 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, setCollapsed, mobileOpen, 
                     {collapsed ? <MdChevronRight size={14} /> : <MdChevronLeft size={14} />}
                 </button>
             </aside>
+
+            <ConfirmModal
+                isOpen={isLogoutModalOpen}
+                onClose={() => setIsLogoutModalOpen(false)}
+                onConfirm={handleLogoutConfirm}
+                title="Confirm Logout"
+                message="Are you sure you want to log out of the admin portal?"
+                confirmLabel="Logout"
+                cancelLabel="Cancel"
+            />
         </>
     );
 };

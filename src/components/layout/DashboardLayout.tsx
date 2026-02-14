@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import Sidebar from "./Sidebar";
-import { MdSearch, MdNotifications, MdMail, MdMenu } from "react-icons/md";
+import { MdNotifications, MdMail, MdMenu, MdSearch } from "react-icons/md";
 import { useRouter } from 'next/navigation';
 import { useTheme } from "@/providers/ThemeProvider"; // Importing useTheme
 import { useAuth } from "@/providers/AuthProvider";
@@ -14,6 +14,17 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
     const { currentTheme } = useTheme(); // Getting current theme
     const { user, logout } = useAuth(); // Get user from AuthContext
     const router = useRouter();
+    const [searchQuery, setSearchQuery] = useState("");
+
+    const handleSearch = () => {
+        if (searchQuery.trim()) {
+            router.push(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
+        }
+    };
+
+
+
+
 
     const handleLogout = () => {
         if (confirm('Are you sure you want to logout?')) {
@@ -68,6 +79,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
                         </div>
 
                         {/* Center Section: Search - Absolutely Positioned */}
+                        {/* Center Section: Search - Absolutely Positioned */}
                         <div className="hidden md:flex absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 items-center border rounded-lg px-4 py-2 w-80 transition-all focus-within:ring-2 focus-within:ring-blue-100 focus-within:border-blue-400"
                             style={{
                                 backgroundColor: currentTheme.background,
@@ -77,7 +89,10 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
                             <MdSearch className="text-lg opacity-50" style={{ color: currentTheme.textColor }} />
                             <input
                                 type="text"
-                                placeholder="Search system..."
+                                placeholder="Search system (Properties, Campaigns)..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                                 className="bg-transparent border-none outline-none text-sm ml-3 w-full font-medium placeholder-opacity-50 placeholder-[var(--placeholder-color)]"
                                 style={{
                                     color: currentTheme.textColor,
@@ -113,7 +128,9 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
                     {children}
                 </div>
             </main>
-        </div>
+
+
+        </div >
     );
 };
 
