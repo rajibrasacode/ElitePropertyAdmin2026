@@ -22,6 +22,7 @@ import { useAuth } from "@/providers/AuthProvider";
 import { loginSchema, LoginFormData, loginDefaultValues } from "./utility";
 import { loginService } from "@/services/auth.service";
 import { showSuccessToast, showErrorToast } from "@/utils/toast";
+import { hasDashboardAccess } from "@/utils/authUtils";
 
 export default function LoginPage() {
     const router = useRouter();
@@ -60,22 +61,32 @@ export default function LoginPage() {
                 password: data.password,
             }),
         onSuccess: (data: any) => {
-            console.log("Login success:", data);
+            const user = data?.data?.user;
 
-            // Show success toast
-            showSuccessToast(data.message || "Login successful!");
+            // Access Control Logic - Use centralized utility function
+            if (hasDashboardAccess(user)) {
+                console.log("Login success:", data);
+                showSuccessToast(data.message || "Login successful!");
 
-            // Update Auth Context
-            // The service already handles localStorage, so we just update context state
-            // Assuming authLogin takes a user object or similar
-            if (data.data?.user) {
-                authLogin(data.data.user);
+                if (user) {
+                    authLogin(user);
+                }
+
+                setTimeout(() => {
+                    router.replace("/dashboard");
+                }, 1000);
+            } else {
+                console.warn("Access Denied: User is not authorized", user);
+                showErrorToast("Access Denied: Only Super Admin or authorized users can login.");
+
+                // Clear any stored session data immediately
+                if (typeof window !== "undefined") {
+                    localStorage.removeItem("accessToken");
+                    localStorage.removeItem("refreshToken");
+                    localStorage.removeItem("user");
+                    localStorage.removeItem("subscription");
+                }
             }
-
-            // Navigate to dashboard
-            setTimeout(() => {
-                router.replace("/dashboard");
-            }, 1000);
         },
         onError: (error: any) => {
             console.error("Login error:", error);

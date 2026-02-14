@@ -1,6 +1,7 @@
 "use client";
 
-import React, { createContext, useContext, useState } from "react";
+import React, { createContext, useContext, useState, useEffect } from "react";
+import { hasDashboardAccess } from "@/utils/authUtils";
 
 // Define User Type
 type User = {
@@ -11,6 +12,7 @@ type User = {
     last_name?: string;
     email?: string;
     role?: string;
+    roles?: any[];
     avatar?: string;
 } | null;
 
@@ -43,6 +45,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             return null;
         }
     });
+
+    // Security Check: Enforce strict access control
+    useEffect(() => {
+        if (!user) return;
+
+        // Validating Authorization
+        if (!hasDashboardAccess(user)) {
+            console.warn("Unauthorized Session Detected: Logging out due to missing permissions.");
+
+            // Force logout
+            setUser(null);
+            if (typeof window !== "undefined") {
+                localStorage.removeItem("accessToken");
+                localStorage.removeItem("refreshToken");
+                localStorage.removeItem("user");
+                localStorage.removeItem("subscription");
+            }
+        }
+    }, [user]);
 
     const login = (userData: User) => {
         setUser(userData);
