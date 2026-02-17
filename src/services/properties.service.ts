@@ -88,3 +88,73 @@ export const deletePropertyByIdService = async (id: string) => {
     throw error.response?.data || error;
   }
 };
+
+// ===============================
+// GET MY PENDING PROPERTIES
+// GET /properties/my-pending
+// ===============================
+export const getMyPendingPropertiesService =
+  async (): Promise<PropertiesResponse> => {
+    try {
+      const { data } = await privetApi.get<PropertiesResponse>(
+        "/properties/my-pending",
+      );
+      return data;
+    } catch (error: any) {
+      throw error.response?.data || error;
+    }
+  };
+
+// GET ALL PENDING PROPERTIES (super_admin only)
+// GET /properties/pending
+export const getAllPendingPropertiesService =
+  async (): Promise<PropertiesResponse> => {
+    try {
+      const { data } = await privetApi.get<PropertiesResponse>(
+        "/properties/pending",
+      );
+      return data;
+    } catch (error: any) {
+      throw error.response?.data || error;
+    }
+  };
+
+// GET PENDING PROPERTY BY ID (super_admin only)
+// GET /properties/pending/{id}
+export const getPendingPropertyByIdService = async (
+  id: string | number,
+): Promise<PropertyData | null> => {
+  try {
+    const response = await privetApi.get<any>(`/properties/pending/${id}`);
+
+    const rawBody = response.data;
+
+    if (rawBody && typeof rawBody === "object" && "data" in rawBody) {
+      return rawBody.data;
+    }
+
+    return rawBody as PropertyData;
+  } catch (error: any) {
+    throw error.response?.data || error;
+  }
+};
+
+// APPROVE PENDING PROPERTY (super_admin only)
+export const approvePendingPropertyService = async (id: string | number) => {
+  try {
+    const { data } = await privetApi.post(`/properties/pending/${id}/approve`);
+    return data;
+  } catch (error: any) {
+    throw error.response?.data || error;
+  }
+};
+
+// REJECT PENDING PROPERTY (super_admin only)
+export const rejectPendingPropertyService = async (id: string | number) => {
+  try {
+    const { data } = await privetApi.post(`/properties/pending/${id}/reject`);
+    return data;
+  } catch (error: any) {
+    throw error.response?.data || error;
+  }
+};
