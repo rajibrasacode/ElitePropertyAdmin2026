@@ -29,6 +29,50 @@ export const getProperties = async (
   }
 };
 
+// GET PENDING PROPERTIES
+export const getPendingProperties = async (
+  params?: PropertiesPayload,
+): Promise<PropertiesResponse> => {
+  try {
+    const response = await privetApi.get<PropertiesResponse>(
+      "/properties/pending",
+      {
+        params,
+      },
+    );
+    return response.data;
+  } catch (error: any) {
+    throw error.response?.data || error;
+  }
+};
+
+// GET PENDING PROPERTY BY ID
+export const getPendingPropertyByIdService = async (
+  id: number | string,
+): Promise<PropertyData | null> => {
+  try {
+    const response = await privetApi.get<any>(`/properties/pending/${id}`);
+
+    const rawBody = response.data;
+
+    // Standardize response handling same as active properties
+    if (rawBody && typeof rawBody === "object" && "data" in rawBody) {
+      const innerData = rawBody.data;
+      if (Array.isArray(innerData)) {
+        return innerData.length > 0 ? innerData[0] : null;
+      }
+      return innerData;
+    }
+    if (Array.isArray(rawBody)) {
+      return rawBody.length > 0 ? rawBody[0] : null;
+    }
+    return rawBody as PropertyData;
+  } catch (error: any) {
+    console.error("[Service Error Pending]", error);
+    throw error.response?.data || error;
+  }
+};
+
 // GET BY ID
 export const getPropertyByIdService = async (
   id: number | string,
@@ -89,72 +133,28 @@ export const deletePropertyByIdService = async (id: string) => {
   }
 };
 
-// ===============================
-// GET MY PENDING PROPERTIES
-// GET /properties/my-pending
-// ===============================
-export const getMyPendingPropertiesService =
-  async (): Promise<PropertiesResponse> => {
-    try {
-      const { data } = await privetApi.get<PropertiesResponse>(
-        "/properties/my-pending",
-      );
-      return data;
-    } catch (error: any) {
-      throw error.response?.data || error;
-    }
-  };
-
-// GET ALL PENDING PROPERTIES (super_admin only)
-// GET /properties/pending
-export const getAllPendingPropertiesService =
-  async (): Promise<PropertiesResponse> => {
-    try {
-      const { data } = await privetApi.get<PropertiesResponse>(
-        "/properties/pending",
-      );
-      return data;
-    } catch (error: any) {
-      throw error.response?.data || error;
-    }
-  };
-
-// GET PENDING PROPERTY BY ID (super_admin only)
-// GET /properties/pending/{id}
-export const getPendingPropertyByIdService = async (
-  id: string | number,
-): Promise<PropertyData | null> => {
+// APPROVE PROPERTY
+// APPROVE PROPERTY
+// APPROVE PROPERTY
+export const approveProperty = async (id: string | number) => {
   try {
-    const response = await privetApi.get<any>(`/properties/pending/${id}`);
-
-    const rawBody = response.data;
-
-    if (rawBody && typeof rawBody === "object" && "data" in rawBody) {
-      return rawBody.data;
-    }
-
-    return rawBody as PropertyData;
+    console.log(`[Service] Approving property ID: ${id}`);
+    const { data } = await privetApi.post(`/properties/pending/${id}/approve`, {});
+    return data;
   } catch (error: any) {
+    console.error("[Service Error] Approve failed:", error.response?.data || error.message);
     throw error.response?.data || error;
   }
 };
 
-// APPROVE PENDING PROPERTY (super_admin only)
-export const approvePendingPropertyService = async (id: string | number) => {
+// REJECT PROPERTY
+export const rejectProperty = async (id: string | number) => {
   try {
-    const { data } = await privetApi.post(`/properties/pending/${id}/approve`);
+    console.log(`[Service] Rejecting property ID: ${id}`);
+    const { data } = await privetApi.post(`/properties/pending/${id}/reject`, {});
     return data;
   } catch (error: any) {
-    throw error.response?.data || error;
-  }
-};
-
-// REJECT PENDING PROPERTY (super_admin only)
-export const rejectPendingPropertyService = async (id: string | number) => {
-  try {
-    const { data } = await privetApi.post(`/properties/pending/${id}/reject`);
-    return data;
-  } catch (error: any) {
+    console.error("[Service Error] Reject failed:", error.response?.data || error.message);
     throw error.response?.data || error;
   }
 };

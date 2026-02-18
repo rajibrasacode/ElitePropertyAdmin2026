@@ -11,6 +11,7 @@ interface ConfirmModalProps {
     confirmLabel?: string;
     cancelLabel?: string;
     isLoading?: boolean;
+    confirmButtonColor?: string;
 }
 
 export const ConfirmModal: FC<ConfirmModalProps> = ({
@@ -22,6 +23,7 @@ export const ConfirmModal: FC<ConfirmModalProps> = ({
     confirmLabel = "Confirm",
     cancelLabel = "Cancel",
     isLoading = false,
+    confirmButtonColor = "#ef4444",
 }) => {
     const { currentTheme } = useTheme();
     const modalRef = useRef<HTMLDivElement>(null);
@@ -97,7 +99,7 @@ export const ConfirmModal: FC<ConfirmModalProps> = ({
                         onClick={onConfirm}
                         disabled={isLoading}
                         className="px-4 py-2 text-sm font-bold text-white rounded-lg shadow-md hover:brightness-110 hover:shadow-lg transition-all flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
-                        style={{ backgroundColor: "#ef4444" }} // Default to red for destructive actions
+                        style={{ backgroundColor: confirmButtonColor }} // Use prop color
                     >
                         {isLoading ? (
                             <>

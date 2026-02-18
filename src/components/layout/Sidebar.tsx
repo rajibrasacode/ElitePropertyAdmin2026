@@ -16,7 +16,8 @@ import {
     MdClose,
     MdBusiness,
     MdPeople,
-    MdCampaign
+    MdCampaign,
+    MdApartment
 } from "react-icons/md";
 import { ConfirmModal } from "../common/ConfirmModal";
 
@@ -148,6 +149,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, setCollapsed, mobileOpen, 
                     <NavLink name="Dashboard" icon={<MdDashboard size={20} />} path="/dashboard" />
 
                     <SectionLabel label="Management" />
+                    <NavLink name="Organizations" icon={<MdApartment size={20} />} path="/organizations" />
                     <NavLink name="Properties" icon={<MdBusiness size={20} />} path="/properties" />
                     <NavLink name="Users & Agents" icon={<MdPeople size={20} />} path="/users" />
                     <NavLink name="Campaigns" icon={<MdCampaign size={20} />} path="/campaigns" />

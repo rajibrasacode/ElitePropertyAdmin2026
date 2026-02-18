@@ -4,31 +4,68 @@ import React, { useEffect, useState } from "react";
 import { MdOutlineBedroomParent, MdOutlineBathroom, MdSquareFoot, MdLocationOn, MdArrowBack, MdCheck, MdClose, MdConstruction, MdGarage, MdOutlineLocalParking, MdCalendarToday, MdLandscape, MdHouse, MdCheckCircle, MdMonetizationOn, MdBuild } from "react-icons/md";
 import { useTheme } from "@/providers/ThemeProvider";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
-import { getPropertyByIdService } from "@/services/properties.service";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { getPropertyByIdService, getPendingPropertyByIdService, approveProperty, rejectProperty } from "@/services/properties.service";
 import { PropertyData } from "@/types/properties.types";
+import { showSuccessToast, showErrorToast } from "@/utils/toast";
+import { ConfirmModal } from "@/components/common/ConfirmModal"; // IMPORT CONFIRM MODAL
 
 export default function ReviewPropertyPage() {
     const { currentTheme } = useTheme();
     const params = useParams(); // To get property ID from URL
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const source = searchParams.get('source'); // Check if coming from pending list
+
     const [property, setProperty] = useState<PropertyData | null>(null);
     const [loading, setLoading] = useState(true);
+    const [actionLoading, setActionLoading] = useState(false); // Separate loading for actions
     const [error, setError] = useState<string | null>(null);
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
+    const [isPendingProperty, setIsPendingProperty] = useState(false);
+
+    // Modal State
+    const [isActionModalOpen, setIsActionModalOpen] = useState(false);
+    const [pendingAction, setPendingAction] = useState<'approve' | 'reject' | null>(null);
 
     useEffect(() => {
         const fetchProperty = async () => {
             if (!params.id) return;
+            setLoading(true);
+
             try {
-                setLoading(true);
-                const data = await getPropertyByIdService(params.id as string);
+                let data;
+                let isPending = false;
+
+                // Priority based on source param, but fallback logic ensures finding provided ID
+                if (source === 'pending') {
+                    try {
+                        data = await getPendingPropertyByIdService(params.id as string);
+                        isPending = true;
+                    } catch (err) {
+                        console.warn("Failed to fetch as pending, trying active...", err);
+                        data = await getPropertyByIdService(params.id as string);
+                        isPending = false;
+                    }
+                } else {
+                    try {
+                        data = await getPropertyByIdService(params.id as string);
+                        isPending = false;
+                    } catch (err) {
+                        console.warn("Failed to fetch as active, trying pending...", err);
+                        data = await getPendingPropertyByIdService(params.id as string);
+                        isPending = true;
+                    }
+                }
+
                 setProperty(data);
+                setIsPendingProperty(isPending);
+
                 if (data && data.images && data.images.length > 0) {
                     setSelectedImage(data.images[0]);
                 }
             } catch (err: any) {
-                console.error("Failed to fetch property:", err);
+                console.error("Failed to fetch property details:", err);
                 setError("Failed to load property details. Please try again.");
             } finally {
                 setLoading(false);
@@ -36,21 +73,45 @@ export default function ReviewPropertyPage() {
         };
 
         fetchProperty();
-    }, [params.id]);
+    }, [params.id, source]);
 
-    const handleApprove = () => {
-        if (window.confirm("Are you sure you want to approve this property?")) {
-            alert("Property Approved Successfully!");
-            router.push("/properties");
+    // Open Modal for Approve
+    const handleApproveClick = () => {
+        setPendingAction('approve');
+        setIsActionModalOpen(true);
+    };
+
+    // Open Modal for Reject
+    const handleRejectClick = () => {
+        setPendingAction('reject');
+        setIsActionModalOpen(true);
+    };
+
+    // Confirm Action Handler
+    const handleConfirmAction = async () => {
+        if (!property || !pendingAction) return;
+
+        setActionLoading(true);
+        try {
+            if (pendingAction === 'approve') {
+                await approveProperty(property.id);
+                showSuccessToast("Property Approved Successfully!");
+                router.push("/properties");
+            } else if (pendingAction === 'reject') {
+                await rejectProperty(property.id);
+                showSuccessToast("Property Rejected.");
+                router.push("/properties");
+            }
+        } catch (error) {
+            console.error(`Failed to ${pendingAction} property`, error);
+            showErrorToast(`Failed to ${pendingAction} property.`);
+        } finally {
+            setActionLoading(false);
+            setIsActionModalOpen(false);
+            setPendingAction(null);
         }
     };
 
-    const handleReject = () => {
-        if (window.confirm("Are you sure you want to reject this property?")) {
-            alert("Property Rejected.");
-            router.push("/properties");
-        }
-    };
 
     if (loading) {
         return (
@@ -73,8 +134,6 @@ export default function ReviewPropertyPage() {
         );
     }
 
-
-
     // Default image if none exist
     // Determined image to display
     const displayImage = selectedImage || (property.images && property.images.length > 0
@@ -90,24 +149,41 @@ export default function ReviewPropertyPage() {
                     <MdArrowBack size={20} />
                     <span className="font-bold">Back to Listings</span>
                 </Link>
-                <div className="flex gap-3">
-                    <button
-                        onClick={handleReject}
-                        className="px-5 py-2.5 rounded-xl font-bold text-sm bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors flex items-center gap-2"
-                    >
-                        <MdClose size={18} />
-                        Reject Property
-                    </button>
-                    <button
-                        onClick={handleApprove}
-                        className="px-5 py-2.5 rounded-xl font-bold text-sm text-white shadow-lg hover:brightness-110 transition-all flex items-center gap-2"
-                        style={{ backgroundColor: currentTheme.primary }}
-                    >
-                        <MdCheck size={18} />
-                        Approve Property
-                    </button>
-                </div>
+                {isPendingProperty && (
+                    <div className="flex gap-3">
+                        <button
+                            onClick={handleRejectClick}
+                            className="px-5 py-2.5 rounded-xl font-bold text-sm bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors flex items-center gap-2"
+                        >
+                            <MdClose size={18} />
+                            Reject Property
+                        </button>
+                        <button
+                            onClick={handleApproveClick}
+                            className="px-5 py-2.5 rounded-xl font-bold text-sm text-white shadow-lg hover:brightness-110 transition-all flex items-center gap-2"
+                            style={{ backgroundColor: currentTheme.primary }}
+                        >
+                            <MdCheck size={18} />
+                            Approve Property
+                        </button>
+                    </div>
+                )}
             </div>
+
+            {/* Confirm Modal */}
+            <ConfirmModal
+                isOpen={isActionModalOpen}
+                onClose={() => setIsActionModalOpen(false)}
+                onConfirm={handleConfirmAction}
+                title={pendingAction === 'approve' ? "Approve Property" : "Reject Property"}
+                message={pendingAction === 'approve'
+                    ? "Are you sure you want to approve this property? It will become active immediately."
+                    : "Are you sure you want to reject this property? This action cannot be undone."}
+                confirmLabel={pendingAction === 'approve' ? "Approve" : "Reject"}
+                isLoading={actionLoading}
+                confirmButtonColor={pendingAction === 'approve' ? currentTheme.primary : '#ef4444'}
+            />
+
 
             {/* Main Content Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
@@ -128,8 +204,8 @@ export default function ReviewPropertyPage() {
                             <span className="px-3 py-1 bg-white/90 backdrop-blur-md rounded-lg text-xs font-bold shadow-sm" style={{ color: currentTheme.headingColor }}>
                                 {property.transaction_type || "Sale"}
                             </span>
-                            <span className={`px-3 py-1 rounded-lg text-xs font-bold text-white shadow-sm bg-emerald-500`}>
-                                Active
+                            <span className={`px-3 py-1 rounded-lg text-xs font-bold text-white shadow-sm ${isPendingProperty ? 'bg-orange-500' : 'bg-emerald-500'}`}>
+                                {isPendingProperty ? 'Pending' : 'Active'}
                             </span>
                         </div>
                     </div>
@@ -150,7 +226,6 @@ export default function ReviewPropertyPage() {
                         </div>
                     )}
 
-                    {/* Property Description */}
                     {/* Property Description */}
                     <div className="space-y-6">
 
@@ -389,8 +464,6 @@ export default function ReviewPropertyPage() {
                     </div>
                 </div>
             </div>
-        </div>
-
-
+        </div >
     );
 }
