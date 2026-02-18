@@ -1,6 +1,13 @@
-import { api } from "@/services/axios";
+import { api, privetApi  } from "@/services/axios";
 import { UserResponse, UserData, UsersListResponse } from "@/types/users.type";
-
+export const getUsers = async (params?: any) => {
+    try {
+        const response = await privetApi.get("/users", { params });
+        return response.data;
+    } catch (error: any) {
+        throw error.response?.data || error;
+    }
+};
 export const getUserService = async (): Promise<UserData> => {
   try {
     const response = await api.get("/users");

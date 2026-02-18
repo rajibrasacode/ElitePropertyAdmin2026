@@ -4,14 +4,16 @@ import { MdAdd, MdSearch, MdFilterList, MdMoreHoriz, MdOutlineBedroomParent, MdO
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTheme } from "@/providers/ThemeProvider";
-import { getProperties, deletePropertyByIdService } from "@/services/properties.service";
+import { getProperties, getPendingProperties, deletePropertyByIdService, approveProperty, rejectProperty } from "@/services/properties.service";
 import { PropertyData } from "@/types/properties.types";
 import { ConfirmModal } from "@/components/common/ConfirmModal";
+import { showSuccessToast, showErrorToast } from "@/utils/toast";
 
 export default function PropertiesPage() {
     const { currentTheme } = useTheme();
     const router = useRouter();
     const [properties, setProperties] = useState<PropertyData[]>([]);
+    const [activeTab, setActiveTab] = useState<'all' | 'pending'>('all'); // Tab State
     const [loading, setLoading] = useState(true);
     const [showFilters, setShowFilters] = useState(false);
     const [activeMenuId, setActiveMenuId] = useState<number | string | null>(null);
@@ -38,17 +40,76 @@ export default function PropertiesPage() {
     const [baths, setBaths] = useState("");
     const [searchQuery, setSearchQuery] = useState("");
 
+    // Modal State for Approve/Reject
+    const [isActionModalOpen, setIsActionModalOpen] = useState(false);
+    const [pendingAction, setPendingAction] = useState<'approve' | 'reject' | null>(null);
+    const [pendingPropertyId, setPendingPropertyId] = useState<number | string | null>(null);
+    const [actionLoading, setActionLoading] = useState(false);
+    const [refreshKey, setRefreshKey] = useState(0); // To trigger re-fetch
+
+    // Open Modal Handlers
+    const onApproveClick = (id: number | string) => {
+        setPendingPropertyId(id);
+        setPendingAction('approve');
+        setIsActionModalOpen(true);
+        setActiveMenuId(null); // Close dropdown
+    };
+
+    const onRejectClick = (id: number | string) => {
+        setPendingPropertyId(id);
+        setPendingAction('reject');
+        setIsActionModalOpen(true);
+        setActiveMenuId(null); // Close dropdown
+    };
+
+    // Confirm Action Helper
+    const handleConfirmAction = async () => {
+        if (!pendingPropertyId || !pendingAction) return;
+
+        setActionLoading(true);
+        try {
+            if (pendingAction === 'approve') {
+                await approveProperty(pendingPropertyId);
+                showSuccessToast("Property approved successfully!");
+            } else {
+                await rejectProperty(pendingPropertyId);
+                showSuccessToast("Property rejected successfully!");
+            }
+            // Trigger refresh
+            setRefreshKey(prev => prev + 1);
+        } catch (error: any) {
+            console.error(`Failed to ${pendingAction} property`, error);
+            const errorMessage = error?.message || error?.error || `Failed to ${pendingAction} property.`;
+            showErrorToast(errorMessage);
+        } finally {
+            setActionLoading(false);
+            setIsActionModalOpen(false);
+            setPendingAction(null);
+            setPendingPropertyId(null);
+        }
+    };
+
     useEffect(() => {
         const fetchProperties = async () => {
             setLoading(true);
             try {
-                const response = await getProperties({
-                    page: pagination.page,
-                    limit: pagination.limit,
-                    search: searchQuery,
-                    type: filterListingType !== "All" ? filterListingType : undefined
-                    // Add other filters to payload as needed if API supports them
-                });
+                let response;
+                if (activeTab === 'pending') {
+                    response = await getPendingProperties({
+                        page: pagination.page,
+                        limit: pagination.limit,
+                        search: searchQuery,
+                        // type: filterListingType !== "All" ? filterListingType : undefined // Pending might not support filters yet, or keep it consistent
+                    });
+                } else {
+                    response = await getProperties({
+                        page: pagination.page,
+                        limit: pagination.limit,
+                        search: searchQuery,
+                        type: filterListingType !== "All" ? filterListingType : undefined
+                    });
+                }
+
                 setProperties(response.data);
                 if (response.pagination) {
                     setPagination(prev => ({
@@ -71,7 +132,7 @@ export default function PropertiesPage() {
         }, 500);
 
         return () => clearTimeout(timeoutId);
-    }, [pagination.page, searchQuery, filterListingType]); // trigger fetch on these changes
+    }, [pagination.page, searchQuery, filterListingType, activeTab, refreshKey]); // Added refreshKey dependency
 
     const handleActivate = (id: number) => {
         setProperties(prev => prev.map(p => p.id === id ? { ...p, status: 'Active' } : p));
@@ -88,8 +149,11 @@ export default function PropertiesPage() {
         const rawPrice = property.listing_price || 0;
 
         // Status is not in API yet, assume active
-        const status = "Active";
-        const matchesStatus = filterStatus === "All" || status === filterStatus;
+        const status = activeTab === 'pending' ? 'Pending' : "Active";
+
+        // If we are in 'pending' tab, ignore the filterStatus logic unless we want to filter within pending (which is usually just Pending)
+        // If we are in 'all' tab, we use the filterStatus
+        const matchesStatus = activeTab === 'pending' ? true : (filterStatus === "All" || status === filterStatus);
 
         const listingType = property.transaction_type || "Sale";
         const matchesListingType = filterListingType === "All" || listingType === filterListingType;
@@ -147,6 +211,46 @@ export default function PropertiesPage() {
         }
     };
 
+    const handleApprove = async (id: number | string) => {
+        if (window.confirm("Are you sure you want to approve this property?")) {
+            try {
+                console.log(`[Page] Approving property ID: ${id}`);
+                await approveProperty(id);
+                showSuccessToast("Property approved successfully!");
+                setProperties(prev => prev.filter(p => p.id !== id));
+                setPagination(prev => ({
+                    ...prev,
+                    total: Math.max(0, prev.total - 1)
+                }));
+                setActiveMenuId(null);
+            } catch (error: any) {
+                console.error("Failed to approve property", error);
+                const errorMessage = error?.message || error?.error || "Failed to approve property.";
+                showErrorToast(errorMessage);
+            }
+        }
+    }
+
+    const handleReject = async (id: number | string) => {
+        if (window.confirm("Are you sure you want to reject this property?")) {
+            try {
+                console.log(`[Page] Rejecting property ID: ${id}`);
+                await rejectProperty(id);
+                showSuccessToast("Property rejected successfully!");
+                setProperties(prev => prev.filter(p => p.id !== id));
+                setPagination(prev => ({
+                    ...prev,
+                    total: Math.max(0, prev.total - 1)
+                }));
+                setActiveMenuId(null);
+            } catch (error: any) {
+                console.error("Failed to reject property", error);
+                const errorMessage = error?.message || error?.error || "Failed to reject property.";
+                showErrorToast(errorMessage);
+            }
+        }
+    }
+
     return (
         <div className="max-w-[1600px] mx-auto space-y-6 pb-20">
             <ConfirmModal
@@ -164,6 +268,30 @@ export default function PropertiesPage() {
                 <div>
                     <h1 className="text-2xl font-bold tracking-tight" style={{ color: currentTheme.headingColor }}>Property Listings</h1>
                     <p className="font-medium text-sm" style={{ color: currentTheme.textColor }}>Manage all properties displayed on the user site.</p>
+
+                    {/* Tabs */}
+                    <div className="flex items-center gap-1 mt-4 p-1 rounded-lg border w-fit" style={{ borderColor: currentTheme.borderColor, backgroundColor: currentTheme.cardBg }}>
+                        <button
+                            onClick={() => { setActiveTab('all'); setPagination(p => ({ ...p, page: 1 })); }}
+                            className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${activeTab === 'all' ? 'shadow-sm' : 'hover:bg-black/5 opacity-60'}`}
+                            style={{
+                                backgroundColor: activeTab === 'all' ? currentTheme.primary : 'transparent',
+                                color: activeTab === 'all' ? '#fff' : currentTheme.textColor
+                            }}
+                        >
+                            Active Listings
+                        </button>
+                        <button
+                            onClick={() => { setActiveTab('pending'); setPagination(p => ({ ...p, page: 1 })); }}
+                            className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${activeTab === 'pending' ? 'shadow-sm' : 'hover:bg-black/5 opacity-60'}`}
+                            style={{
+                                backgroundColor: activeTab === 'pending' ? currentTheme.primary : 'transparent',
+                                color: activeTab === 'pending' ? '#fff' : currentTheme.textColor
+                            }}
+                        >
+                            Pending Approval
+                        </button>
+                    </div>
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
@@ -352,7 +480,7 @@ export default function PropertiesPage() {
                 ) : filteredProperties.length > 0 ? (
                     filteredProperties.map((property) => (
                         <div
-                            onClick={() => router.push(`/properties/review/${property.id}`)}
+                            onClick={() => router.push(`/properties/review/${property.id}${activeTab === 'pending' ? '?source=pending' : ''}`)}
                             key={property.id}
                             className="rounded-2xl border overflow-hidden hover:shadow-lg transition-all duration-300 group cursor-pointer backdrop-blur-md"
                             style={{
@@ -378,8 +506,8 @@ export default function PropertiesPage() {
                                 >
                                     {property.transaction_type}
                                 </div>
-                                <div className={`absolute top-4 right-4 px-3 py-1 rounded-lg text-xs font-bold text-white shadow-sm bg-emerald-500`}>
-                                    Active
+                                <div className={`absolute top-4 right-4 px-3 py-1 rounded-lg text-xs font-bold text-white shadow-sm ${activeTab === 'pending' ? 'bg-orange-500' : 'bg-emerald-500'}`}>
+                                    {activeTab === 'pending' ? 'Pending' : 'Active'}
                                 </div>
                             </div>
 
@@ -467,7 +595,7 @@ export default function PropertiesPage() {
                                                         </button>
                                                     </Link>
 
-                                                    {true ? ( // Assuming all active for now
+                                                    {activeTab === 'all' ? (
                                                         <button
                                                             className="px-4 py-2.5 text-left text-sm font-semibold text-amber-600 hover:bg-amber-50 transition-colors flex items-center gap-2"
                                                         >
@@ -475,19 +603,30 @@ export default function PropertiesPage() {
                                                         </button>
                                                     ) : (
                                                         <button
+                                                            onClick={(e) => { e.stopPropagation(); onApproveClick(property.id); }}
                                                             className="px-4 py-2.5 text-left text-sm font-semibold text-emerald-600 hover:bg-emerald-50 transition-colors flex items-center gap-2"
                                                         >
-                                                            Activate
+                                                            Approve
                                                         </button>
                                                     )}
 
                                                     <div className="h-px bg-black/5 my-1" style={{ backgroundColor: currentTheme.borderColor }}></div>
-                                                    <button
-                                                        onClick={() => initiateDelete(property.id)}
-                                                        className="px-4 py-2.5 text-left text-sm font-semibold text-rose-500 hover:bg-rose-50 transition-colors flex items-center gap-2"
-                                                    >
-                                                        Delete Property
-                                                    </button>
+
+                                                    {activeTab === 'all' ? (
+                                                        <button
+                                                            onClick={() => initiateDelete(property.id)}
+                                                            className="px-4 py-2.5 text-left text-sm font-semibold text-rose-500 hover:bg-rose-50 transition-colors flex items-center gap-2"
+                                                        >
+                                                            Delete Property
+                                                        </button>
+                                                    ) : (
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); onRejectClick(property.id); }}
+                                                            className="px-4 py-2.5 text-left text-sm font-semibold text-rose-600 hover:bg-rose-50 transition-colors flex items-center gap-2"
+                                                        >
+                                                            Reject Property
+                                                        </button>
+                                                    )}
                                                 </div>
                                             </div>
                                         )}
@@ -576,6 +715,19 @@ export default function PropertiesPage() {
                     </div>
                 </div>
             )}
+
+            <ConfirmModal
+                isOpen={isActionModalOpen}
+                onClose={() => setIsActionModalOpen(false)}
+                onConfirm={handleConfirmAction}
+                title={pendingAction === 'approve' ? "Approve Property" : "Reject Property"}
+                message={pendingAction === 'approve'
+                    ? "Are you sure you want to approve this property? It will become active immediately."
+                    : "Are you sure you want to reject this property? This action cannot be undone."}
+                confirmLabel={pendingAction === 'approve' ? "Approve" : "Reject"}
+                isLoading={actionLoading}
+                confirmButtonColor={pendingAction === 'approve' ? currentTheme.primary : '#ef4444'}
+            />
         </div>
     );
 }
