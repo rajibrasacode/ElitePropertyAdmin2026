@@ -18,7 +18,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Boltz Admin Portal",
+  title: "Rasacode Admin Portal",
   description: "Advanced Real Estate Management",
 };
 
@@ -29,7 +29,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable} bg-slate-50`}>
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} bg-slate-50`}
+      >
         <ReactQueryProvider>
           <ThemeProvider>
             <AuthProvider>
