@@ -29,8 +29,14 @@ import {
   roofStatusOptions,
   interiorConditionOptions,
   transactionTypeOptions,
+  listingTypeOptions,
+  rentFrequencyOptions,
+  smokingPolicyOptions,
+  utilityOptions,
+  amenityOptions,
   PropertyFormData,
   getInitialFormData,
+  propertyListingSchema
 } from "@/utils/propertyFormUtils";
 import { PageHeader } from "@/components/common/Pageheader";
 import { SectionCard } from "@/components/common/Sectioncard";
@@ -42,6 +48,7 @@ import { CheckboxButton } from "@/components/common/Checkboxbutton";
 import { FileUpload } from "@/components/common/Fileupload";
 import { Button } from "@/components/common/Button";
 import { ErrorMessage } from "./ErrorMessage";
+import { Switch } from "@/components/common/Switch";
 
 const MdPinDropIcon = MdLocationOn;
 
@@ -64,9 +71,17 @@ export default function PropertyForm({
 }: PropertyFormProps) {
   const router = useRouter();
   const isEditMode = mode === "edit";
+  const normalizeListingType = (
+    listingType?: PropertyFormData["listing_type"],
+  ): PropertyFormData["listing_type"] => {
+    if (listingType === "Rent") return "Rent";
+    return "Sale";
+  };
 
   const [formData, setFormData] = useState<PropertyFormData>(
-    initialData ? initialData : getInitialFormData(),
+    initialData
+      ? { ...initialData, listing_type: normalizeListingType(initialData.listing_type) }
+      : getInitialFormData(),
   );
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -75,7 +90,10 @@ export default function PropertyForm({
   // Update form data when initialData changes (for edit mode)
   useEffect(() => {
     if (initialData) {
-      setFormData(initialData);
+      setFormData({
+        ...initialData,
+        listing_type: normalizeListingType(initialData.listing_type),
+      });
     }
   }, [initialData]);
 
@@ -122,7 +140,36 @@ export default function PropertyForm({
     try {
       setIsSubmitting(true);
       setErrors({});
+      try {
+        const imagesForValidation =
+          formData.images && formData.images.length > 0
+            ? formData.images
+            : isEditMode && initialExistingImages.length > 0
+              ? initialExistingImages
+              : [];
 
+        await propertyListingSchema.validate(
+          { ...formData, images: imagesForValidation },
+          { abortEarly: false },
+        );
+      } catch (validationError: any) {
+        if (validationError.inner) {
+          const fieldErrors: Record<string, string> = {};
+          validationError.inner.forEach((err: any) => {
+            if (err.path && !fieldErrors[err.path]) {
+              fieldErrors[err.path] = err.message;
+            }
+          });
+          setErrors(fieldErrors);
+
+          // Scroll to first error field
+          const firstErrorKey = Object.keys(fieldErrors)[0];
+          const el = document.querySelector(`[name="${firstErrorKey}"]`);
+          if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+        setIsSubmitting(false);
+        return;
+      }
       // Create FormData for submission
       const submitFormData = new FormData();
 
@@ -167,7 +214,7 @@ export default function PropertyForm({
     <div className="max-w-[1600px] mx-auto pb-20 fade-in-up">
       <PageHeader
         backLink={backUrl}
-        title={isEditMode ? "Edit Property" : "Add New Property"}
+        title={isEditMode ? "Edit Property" : "Add Property (Sale/Rent)"}
         subtitle={
           isEditMode ? "Update property details" : "Create a new listing"
         }
@@ -195,9 +242,40 @@ export default function PropertyForm({
       />
 
       <form onSubmit={handleSubmit} className="space-y-6">
+        {/* LISTING TYPE */}
+        <SectionCard stepNumber={1} title="Listing Type" bgColor="bg-blue-50" textColor="text-blue-600">
+          <div className="grid grid-cols-12 gap-x-4 gap-y-5">
+            <div className="col-span-12 sm:col-span-6">
+              <InputField label="This property is for:" required>
+                <div className="flex gap-4 mt-2">
+                  <Switch
+                    label="For Sale"
+                    checked={formData.listing_type === "Sale"}
+                    onChange={(checked) => {
+                      if (checked) {
+                        setFormData((prev) => ({ ...prev, listing_type: "Sale" }));
+                      }
+                    }}
+                    className="w-full sm:w-auto min-w-[140px]"
+                  />
+                  <Switch
+                    label="For Rent"
+                    checked={formData.listing_type === "Rent"}
+                    onChange={(checked) => {
+                      if (checked) {
+                        setFormData((prev) => ({ ...prev, listing_type: "Rent" }));
+                      }
+                    }}
+                    className="w-full sm:w-auto min-w-[140px]"
+                  />
+                </div>
+              </InputField>
+            </div>
+          </div>
+        </SectionCard>
         {/* ADDRESS & SPECS */}
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-          <SectionCard stepNumber={1} title="Property Address">
+          <SectionCard stepNumber={2} title="Property Address">
             <div className="grid grid-cols-12 gap-x-4 gap-y-5">
               <div className="col-span-12 lg:col-span-8">
                 <InputField
@@ -280,7 +358,7 @@ export default function PropertyForm({
             </div>
           </SectionCard>
 
-          <SectionCard stepNumber={2} title="Property Specs">
+          <SectionCard stepNumber={3} title="Property Specs">
             <div className="grid grid-cols-12 gap-x-4 gap-y-5">
               <div className="col-span-12 sm:col-span-6">
                 <InputField label="Property Type" icon={<MdHome />} required>
@@ -399,10 +477,12 @@ export default function PropertyForm({
           </SectionCard>
         </div>
 
-        {/* CONDITION & FINANCIALS */}
+
+
+        {/* CONDITION & ADDITIONAL INFO */}
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
           <SectionCard
-            stepNumber={3}
+            stepNumber={4}
             title="Condition"
             bgColor="bg-orange-50"
             textColor="text-orange-600"
@@ -482,97 +562,6 @@ export default function PropertyForm({
           </SectionCard>
 
           <SectionCard
-            stepNumber={4}
-            title="Financials"
-            bgColor="bg-emerald-50"
-            textColor="text-emerald-600"
-          >
-            <div className="grid grid-cols-12 gap-x-4 gap-y-5">
-              <div className="col-span-12 sm:col-span-6">
-                <InputField
-                  label="Listing Price"
-                  icon={<span className="font-bold">$</span>}
-                  required
-                >
-                  <TextInput
-                    required
-                    type="number"
-                    name="listing_price"
-                    placeholder="0"
-                    value={formData.listing_price}
-                    onChange={handleChange}
-                    style={{ fontWeight: "bold" }}
-                  />
-                </InputField>
-                <ErrorMessage error={getFieldError("listing_price")} />
-              </div>
-              <div className="col-span-12 sm:col-span-6">
-                <InputField
-                  label="Asking Price"
-                  icon={<span className="font-bold">$</span>}
-                  required
-                >
-                  <TextInput
-                    required
-                    type="number"
-                    name="asking_price"
-                    placeholder="0"
-                    value={formData.asking_price}
-                    onChange={handleChange}
-                    style={{ fontWeight: "bold" }}
-                  />
-                </InputField>
-                <ErrorMessage error={getFieldError("asking_price")} />
-              </div>
-
-              <div className="col-span-12">
-                <InputField
-                  label="Transaction Type"
-                  icon={<MdRealEstateAgent />}
-                  required
-                >
-                  <SelectInput
-                    required
-                    name="transaction_type"
-                    value={formData.transaction_type}
-                    onChange={handleChange}
-                    options={transactionTypeOptions.map((opt) => opt.value)}
-                  />
-                </InputField>
-                <ErrorMessage error={getFieldError("transaction_type")} />
-              </div>
-
-              {[
-                { n: "arv", l: "ARV", i: <MdLocalOffer /> },
-                { n: "repair_estimate", l: "Repair Estimate", i: <MdBuild /> },
-                { n: "holding_costs", l: "Holding Costs", i: <MdMoneyOff /> },
-                {
-                  n: "assignment_fee",
-                  l: "Assignment Fee",
-                  i: <MdAttachMoney />,
-                },
-              ].map((f) => (
-                <div key={f.n} className="col-span-12 sm:col-span-6">
-                  <InputField label={f.l} icon={f.i} required>
-                    <TextInput
-                      required
-                      type="number"
-                      name={f.n}
-                      placeholder="0"
-                      value={(formData as any)[f.n]}
-                      onChange={handleChange}
-                    />
-                  </InputField>
-                  <ErrorMessage error={getFieldError(f.n)} />
-                </div>
-              ))}
-            </div>
-          </SectionCard>
-        </div>
-
-        {/* INFO & IMAGES */}
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-          <SectionCard
             stepNumber={5}
             title="Additional Info"
             bgColor="bg-gray-100"
@@ -586,7 +575,7 @@ export default function PropertyForm({
                     placeholder="Description..."
                     value={formData.property_description}
                     onChange={handleChange}
-                    className="h-24"
+                    className="h-32"
                   />
                 </InputField>
                 <ErrorMessage error={getFieldError("property_description")} />
@@ -598,38 +587,366 @@ export default function PropertyForm({
                     placeholder="Notes..."
                     value={formData.seller_notes}
                     onChange={handleChange}
-                    className="h-20"
+                    className="h-24"
                   />
                 </InputField>
                 <ErrorMessage error={getFieldError("seller_notes")} />
               </div>
             </div>
           </SectionCard>
-
-          <SectionCard
-            stepNumber={6}
-            title="Property Images"
-            bgColor="bg-indigo-50"
-            textColor="text-indigo-600"
-          >
-            <FileUpload
-              id="file-upload-smart"
-              onChange={handleFileChange}
-              fileCount={
-                formData.images && Array.isArray(formData.images)
-                  ? formData.images.length
-                  : 0
-              }
-            />
-            {isEditMode &&
-              (!formData.images || formData.images.length === 0) && (
-                <p className="mt-2 text-sm text-gray-500">
-                  No new images selected. Existing images will be preserved.
-                </p>
-              )}
-            <ErrorMessage error={getFieldError("images")} />
-          </SectionCard>
         </div>
+
+        {/* FINANCIALS (FULL WIDTH) */}
+        <SectionCard
+          stepNumber={6}
+          title="Financials"
+          bgColor="bg-emerald-50"
+          textColor="text-emerald-600"
+        >
+          <div className="grid grid-cols-12 gap-x-4 gap-y-5">
+
+            {/* SALE FIELDS */}
+            {(formData.listing_type === "Sale" || formData.listing_type === "Both") && (
+              <>
+                <div className="col-span-12">
+                  <h4 className="font-bold text-gray-700 border-b border-gray-200 pb-2 mb-2 flex items-center gap-2">
+                    For Sale Details
+                  </h4>
+                </div>
+                <div className="col-span-12 sm:col-span-6 lg:col-span-3">
+                  <InputField
+                    label="Listing Price"
+                    icon={<span className="font-bold">$</span>}
+                    required
+                  >
+                    <TextInput
+                      required
+                      type="number"
+                      name="listing_price"
+                      placeholder="0"
+                      value={formData.listing_price}
+                      onChange={handleChange}
+                      style={{ fontWeight: "bold" }}
+                    />
+                  </InputField>
+                  <ErrorMessage error={getFieldError("listing_price")} />
+                </div>
+                <div className="col-span-12 sm:col-span-6 lg:col-span-3">
+                  <InputField
+                    label="Asking Price"
+                    icon={<span className="font-bold">$</span>}
+                    required
+                  >
+                    <TextInput
+                      required
+                      type="number"
+                      name="asking_price"
+                      placeholder="0"
+                      value={formData.asking_price}
+                      onChange={handleChange}
+                      style={{ fontWeight: "bold" }}
+                    />
+                  </InputField>
+                  <ErrorMessage error={getFieldError("asking_price")} />
+                </div>
+
+                <div className="col-span-12 sm:col-span-6 lg:col-span-3">
+                  <InputField
+                    label="Transaction Type"
+                    icon={<MdRealEstateAgent />}
+                    required
+                  >
+                    <SelectInput
+                      required
+                      name="transaction_type"
+                      value={formData.transaction_type}
+                      onChange={handleChange}
+                      options={transactionTypeOptions.map((opt) => opt.value)}
+                    />
+                  </InputField>
+                  <ErrorMessage error={getFieldError("transaction_type")} />
+                </div>
+
+
+
+                {[
+                  { n: "arv", l: "ARV", i: <MdLocalOffer /> },
+                  { n: "repair_estimate", l: "Repair Estimate", i: <MdBuild /> },
+                  { n: "holding_costs", l: "Holding Costs", i: <MdMoneyOff /> },
+                  {
+                    n: "assignment_fee",
+                    l: "Assignment Fee",
+                    i: <MdAttachMoney />,
+                  },
+                ].map((f) => (
+                  <div key={f.n} className="col-span-12 sm:col-span-6 lg:col-span-3">
+                    <InputField label={f.l} icon={f.i} required>
+                      <TextInput
+                        required
+                        type="number"
+                        name={f.n}
+                        placeholder="0"
+                        value={(formData as any)[f.n]}
+                        onChange={handleChange}
+                      />
+                    </InputField>
+                    <ErrorMessage error={getFieldError(f.n)} />
+                  </div>
+                ))}
+              </>
+            )}
+
+            {/* RENT FIELDS */}
+            {(formData.listing_type === "Rent" || formData.listing_type === "Both") && (
+              <>
+                {(formData.listing_type === "Both") && <div className="col-span-12 my-2"></div>}
+                <div className="col-span-12">
+                  <h4 className="font-bold text-gray-700 border-b border-gray-200 pb-2 mb-2 flex items-center gap-2">
+                    For Rent Details
+                  </h4>
+                </div>
+
+                <div className="col-span-12 sm:col-span-6 lg:col-span-3">
+                  <InputField
+                    label="Rent Price"
+                    icon={<span className="font-bold">$</span>}
+                    required
+                  >
+                    <TextInput
+                      required
+                      type="number"
+                      name="rent_price"
+                      placeholder="0"
+                      value={formData.rent_price}
+                      onChange={handleChange}
+                      style={{ fontWeight: "bold" }}
+                    />
+                  </InputField>
+                  <ErrorMessage error={getFieldError("rent_price")} />
+                </div>
+
+                <div className="col-span-12 sm:col-span-6 lg:col-span-3">
+                  <InputField
+                    label="Rent Frequency"
+                    icon={<MdCalendarToday />}
+                    required
+                  >
+                    <SelectInput
+                      required
+                      name="rent_frequency"
+                      value={formData.rent_frequency}
+                      onChange={handleChange}
+                      options={rentFrequencyOptions.map((opt) => opt.value)}
+                    />
+                  </InputField>
+                  <ErrorMessage error={getFieldError("rent_frequency")} />
+                </div>
+
+                <div className="col-span-12 sm:col-span-6 lg:col-span-3">
+                  <InputField
+                    label="Security Deposit"
+                    icon={<MdAttachMoney />}
+                  >
+                    <TextInput
+                      type="number"
+                      name="security_deposit"
+                      placeholder="0"
+                      value={formData.security_deposit}
+                      onChange={handleChange}
+                    />
+                  </InputField>
+                  <ErrorMessage error={getFieldError("security_deposit")} />
+                </div>
+
+                <div className="col-span-12 sm:col-span-6 lg:col-span-3">
+                  <InputField
+                    label="Lease Duration (Months)"
+                    icon={<MdCalendarToday />}
+                  >
+                    <TextInput
+                      type="number"
+                      name="lease_duration"
+                      placeholder="12"
+                      value={formData.lease_duration}
+                      onChange={handleChange}
+                    />
+                  </InputField>
+                  <ErrorMessage error={getFieldError("lease_duration")} />
+                </div>
+
+                <div className="col-span-12 sm:col-span-6 lg:col-span-3">
+                  <InputField
+                    label="Available From"
+                    icon={<MdCalendarToday />}
+                    required
+                  >
+                    <TextInput
+                      type="date"
+                      name="available_from"
+                      required
+                      value={formData.available_from}
+                      onChange={handleChange}
+                    />
+                  </InputField>
+                  <ErrorMessage error={getFieldError("available_from")} />
+                </div>
+
+                <div className="col-span-12 sm:col-span-6 lg:col-span-6 flex flex-col sm:flex-row gap-6 mt-2 items-center">
+                  <CheckboxButton
+                    name="is_furnished"
+                    label="Furnished"
+                    checked={!!formData.is_furnished}
+                    onChange={handleCheckboxChange}
+                    className="w-full"
+                  />
+                  <CheckboxButton
+                    name="pets_allowed"
+                    label="Pets Allowed"
+                    checked={!!formData.pets_allowed}
+                    onChange={handleCheckboxChange}
+                    className="w-full"
+                  />
+                </div>
+                <div className="col-span-12 sm:col-span-6 lg:col-span-3">
+                  <InputField
+                    label="Smoking Policy"
+                    icon={<MdMoneyOff />}
+                    required
+                  >
+                    <SelectInput
+                      name="smoking_policy"
+                      value={formData.smoking_policy}
+                      onChange={handleChange}
+                      options={smokingPolicyOptions.map((opt) => opt.value)}
+                    />
+                  </InputField>
+                  <ErrorMessage error={getFieldError("smoking_policy")} />
+                </div>
+
+                <div className="col-span-12 sm:col-span-6 lg:col-span-3">
+                  <InputField
+                    label="Application Fee"
+                    icon={<MdAttachMoney />}
+                  >
+                    <TextInput
+                      type="number"
+                      name="application_fee"
+                      placeholder="0"
+                      value={formData.application_fee}
+                      onChange={handleChange}
+                    />
+                  </InputField>
+                  <ErrorMessage error={getFieldError("application_fee")} />
+                </div>
+
+                <div className="col-span-12 sm:col-span-6 lg:col-span-3">
+                  <InputField
+                    label="Move-in Fees"
+                    icon={<MdAttachMoney />}
+                  >
+                    <TextInput
+                      type="number"
+                      name="move_in_fees"
+                      placeholder="0"
+                      value={formData.move_in_fees}
+                      onChange={handleChange}
+                    />
+                  </InputField>
+                  <ErrorMessage error={getFieldError("move_in_fees")} />
+                </div>
+
+                <div className="col-span-12">
+                  <h4 className="font-bold text-gray-700 border-b border-gray-200 pb-2 my-4 flex items-center gap-2">
+                    Utilities Included
+                  </h4>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    {utilityOptions.map((utility) => (
+                      <CheckboxButton
+                        key={utility}
+                        name="utilities_included"
+                        label={utility}
+                        checked={formData.utilities_included?.includes(utility) || false}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          const current = formData.utilities_included || [];
+                          if (checked) {
+                            setFormData((prev) => ({
+                              ...prev,
+                              utilities_included: [...current, utility],
+                            }));
+                          } else {
+                            setFormData((prev) => ({
+                              ...prev,
+                              utilities_included: current.filter((u) => u !== utility),
+                            }));
+                          }
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                <div className="col-span-12">
+                  <h4 className="font-bold text-gray-700 border-b border-gray-200 pb-2 my-4 flex items-center gap-2">
+                    Amenities & Facilities
+                  </h4>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    {amenityOptions.map((amenity) => (
+                      <CheckboxButton
+                        key={amenity}
+                        name="amenities"
+                        label={amenity}
+                        checked={formData.amenities?.includes(amenity) || false}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          const current = formData.amenities || [];
+                          if (checked) {
+                            setFormData((prev) => ({
+                              ...prev,
+                              amenities: [...current, amenity],
+                            }));
+                          } else {
+                            setFormData((prev) => ({
+                              ...prev,
+                              amenities: current.filter((u) => u !== amenity),
+                            }));
+                          }
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+              </>
+            )}
+
+          </div>
+        </SectionCard>
+
+        {/* IMAGES */}
+        <SectionCard
+          stepNumber={7}
+          title="Property Images"
+          bgColor="bg-indigo-50"
+          textColor="text-indigo-600"
+        >
+          <FileUpload
+            id="file-upload-smart"
+            onChange={handleFileChange}
+            fileCount={
+              formData.images && Array.isArray(formData.images)
+                ? formData.images.length
+                : 0
+            }
+          />
+          {isEditMode &&
+            (!formData.images || formData.images.length === 0) && (
+              <p className="mt-2 text-sm text-gray-500">
+                No new images selected. Existing images will be preserved.
+              </p>
+            )}
+          <ErrorMessage error={getFieldError("images")} />
+        </SectionCard>
       </form>
     </div>
   );
