@@ -33,9 +33,25 @@ export interface PropertyData {
     assignment_fee: number;
     property_description: string;
     seller_notes: string;
+    // Rental / Listing Type Fields
+    listing_type: "Sale" | "Rent" | "Both";
+    rent_price?: number;
+    rent_frequency?: "Monthly" | "Weekly" | "Daily" | "Yearly";
+    security_deposit?: number;
+    available_from?: string;
+    lease_duration?: number; // months
+    is_furnished?: boolean;
+    pets_allowed?: boolean;
+    // New Rental Fields
+    application_fee?: number;
+    move_in_fees?: number;
+    smoking_policy?: "Allowed" | "Not Allowed" | "Outdoors Only";
+    utilities_included?: string[];
+    amenities?: string[];
     images: string[]; // Changed from (File | string)[] to string[] since API returns URLs
     created_at?: string; // Added from API response
     updated_at?: string; // Added from API response
+    status?: string;
 }
 
 export interface Pagination {
@@ -80,6 +96,21 @@ export interface PropertiesPayload {
     assignment_fee?: number;
     property_description?: string;
     seller_notes?: string;
+    // Rental / Listing Type Fields
+    listing_type?: "Sale" | "Rent" | "Both";
+    rent_price?: number;
+    rent_frequency?: "Monthly" | "Weekly" | "Daily" | "Yearly";
+    security_deposit?: number;
+    available_from?: string;
+    lease_duration?: number;
+    is_furnished?: boolean;
+    pets_allowed?: boolean;
+    // New Rental Fields
+    application_fee?: number;
+    move_in_fees?: number;
+    smoking_policy?: "Allowed" | "Not Allowed" | "Outdoors Only";
+    utilities_included?: string[];
+    amenities?: string[];
     images?: (File | string)[]; // Keep as is for upload
     page?: number; // Added for pagination
     limit?: number; // Added for pagination

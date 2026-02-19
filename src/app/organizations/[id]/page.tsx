@@ -471,167 +471,196 @@ export default function OrganizationDetailsPage() {
 
                             {/* PLANS - Pricing Card Style */}
                             {activeTab === 'plans' && (
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-6">
-                                    {plans.length > 0 ? plans.map((plan) => (
-                                        <div key={plan.id} className="relative flex flex-col border rounded-2xl p-6 transition-all hover:-translate-y-1 hover:shadow-lg bg-gradient-to-b from-white to-gray-50/50"
-                                            style={{ borderColor: currentTheme.borderColor }}>
-                                            <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-transparent via-current to-transparent opacity-50"
-                                                style={{ color: currentTheme.primary }}></div>
+                                <div className="space-y-4">
+                                    <div className="flex items-center justify-between">
+                                        <div className="text-sm opacity-70 font-medium" style={{ color: currentTheme.textColor }}>
+                                            Managing {plans.length} plans
+                                        </div>
+                                        <button
+                                            onClick={() => console.log("Add Plan clicked")}
+                                            className="px-4 py-2 rounded-lg text-white font-bold text-xs uppercase tracking-wide shadow-lg hover:shadow-xl active:scale-95 transition-all flex items-center gap-2"
+                                            style={{ backgroundColor: currentTheme.primary }}
+                                        >
+                                            <MdLocalOffer size={16} /> Add Plan
+                                        </button>
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-6">
+                                        {plans.length > 0 ? plans.map((plan) => (
+                                            <div key={plan.id} className="relative flex flex-col border rounded-2xl p-6 transition-all hover:-translate-y-1 hover:shadow-lg bg-gradient-to-b from-white to-gray-50/50"
+                                                style={{ borderColor: currentTheme.borderColor }}>
+                                                <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-transparent via-current to-transparent opacity-50"
+                                                    style={{ color: currentTheme.primary }}></div>
 
-                                            <div className="flex justify-between items-start mb-4">
-                                                <div className="font-bold text-lg" style={{ color: currentTheme.headingColor }}>{plan.name}</div>
-                                                <button
-                                                    onClick={() => setConfirmAction({ type: 'plan', id: plan.id })}
-                                                    className="text-red-400 hover:text-red-600 p-1 rounded-md hover:bg-red-50 transition-colors"
-                                                >
-                                                    <MdDelete size={18} />
-                                                </button>
-                                            </div>
+                                                <div className="flex justify-between items-start mb-4">
+                                                    <div className="font-bold text-lg" style={{ color: currentTheme.headingColor }}>{plan.name}</div>
+                                                    <button
+                                                        onClick={() => setConfirmAction({ type: 'plan', id: plan.id })}
+                                                        className="text-red-400 hover:text-red-600 p-1 rounded-md hover:bg-red-50 transition-colors"
+                                                    >
+                                                        <MdDelete size={18} />
+                                                    </button>
+                                                </div>
 
-                                            <div className="mb-6">
-                                                <div className="flex items-baseline gap-1">
-                                                    <span className="text-3xl font-extrabold" style={{ color: currentTheme.primary }}>${plan.price}</span>
-                                                    <span className="text-xs font-bold uppercase opacity-60" style={{ color: currentTheme.textColor }}>/mo</span>
+                                                <div className="mb-6">
+                                                    <div className="flex items-baseline gap-1">
+                                                        <span className="text-3xl font-extrabold" style={{ color: currentTheme.primary }}>${plan.price}</span>
+                                                        <span className="text-xs font-bold uppercase opacity-60" style={{ color: currentTheme.textColor }}>/mo</span>
+                                                    </div>
+                                                </div>
+
+                                                <div className="mt-auto border-t pt-4" style={{ borderColor: currentTheme.borderColor }}>
+                                                    <p className="text-sm opacity-70 leading-relaxed" style={{ color: currentTheme.textColor }}>
+                                                        {plan.description || "Contains: Standard features, basic support, single user license."}
+                                                    </p>
                                                 </div>
                                             </div>
-
-                                            <div className="mt-auto border-t pt-4" style={{ borderColor: currentTheme.borderColor }}>
-                                                <p className="text-sm opacity-70 leading-relaxed" style={{ color: currentTheme.textColor }}>
-                                                    {plan.description || "Contains: Standard features, basic support, single user license."}
-                                                </p>
+                                        )) : (
+                                            <div className="col-span-full py-16 text-center border-2 border-dashed rounded-2xl flex flex-col items-center gap-3"
+                                                style={{ borderColor: currentTheme.borderColor, color: currentTheme.textColor }}>
+                                                <div className="p-4 rounded-full bg-black/5 opacity-50">
+                                                    <MdLocalOffer size={32} />
+                                                </div>
+                                                <span className="opacity-60 font-medium">No subscription plans active.</span>
                                             </div>
-                                        </div>
-                                    )) : (
-                                        <div className="col-span-full py-16 text-center border-2 border-dashed rounded-2xl flex flex-col items-center gap-3"
-                                            style={{ borderColor: currentTheme.borderColor, color: currentTheme.textColor }}>
-                                            <div className="p-4 rounded-full bg-black/5 opacity-50">
-                                                <MdLocalOffer size={32} />
-                                            </div>
-                                            <span className="opacity-60 font-medium">No subscription plans active.</span>
-                                        </div>
-                                    )}
+                                        )}
+                                    </div>
                                 </div>
                             )}
 
                             {/* ROLES - Cards + Right Side Permissions */}
                             {activeTab === 'roles' && (
-                                <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
-                                    <div className="xl:col-span-4 space-y-4">
-                                        {roles.length > 0 ? roles.map((role, idx) => {
-                                            const roleName = role.role || role.name || role.Name || role.label || "Unknown Role";
-                                            const displayName = String(roleName).replace(/_/g, " ").toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
-                                            const roleId = String(role.id || role.Id || role._id || idx);
-                                            const roleDescription = role.role_title || role.description || role.title || "Custom defined role with specific permission sets.";
-                                            const isSelected = roleId === selectedRoleId;
-
-                                            return (
-                                                <div
-                                                    key={roleId}
-                                                    onClick={() => setSelectedRoleId(roleId)}
-                                                    className={`group relative overflow-hidden rounded-2xl border p-5 transition-all cursor-pointer ${isSelected ? 'shadow-md' : 'hover:shadow-md'}`}
-                                                    style={{
-                                                        borderColor: isSelected ? currentTheme.primary : currentTheme.borderColor,
-                                                        backgroundColor: currentTheme.cardBg
-                                                    }}
-                                                >
-                                                    <div className="absolute top-0 left-0 w-1 h-full opacity-100 transition-opacity"
-                                                        style={{ backgroundColor: isSelected ? currentTheme.primary : `${currentTheme.primary}40` }}></div>
-
-                                                    <div className="flex items-start justify-between mb-4">
-                                                        <div className="p-3 rounded-xl transition-colors shadow-sm"
-                                                            style={{ backgroundColor: currentTheme.primary + '15', color: currentTheme.primary }}>
-                                                            <MdSecurity size={24} />
-                                                        </div>
-                                                        <span className="text-[10px] font-mono px-2 py-1 rounded bg-gray-100 text-gray-500 font-bold border border-gray-200">
-                                                            ID: {roleId}
-                                                        </span>
-                                                    </div>
-
-                                                    <div className="mb-2">
-                                                        <h3 className="font-bold text-lg mb-1" style={{ color: currentTheme.headingColor }}>
-                                                            {displayName}
-                                                        </h3>
-                                                        <p className="text-sm opacity-70 leading-relaxed line-clamp-2 min-h-[2.5em]" style={{ color: currentTheme.textColor }}>
-                                                            {roleDescription}
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                            );
-                                        }) : (
-                                            <div className="py-16 text-center border-2 border-dashed rounded-2xl flex flex-col items-center gap-3"
-                                                style={{ borderColor: currentTheme.borderColor, color: currentTheme.textColor }}>
-                                                <div className="p-4 rounded-full bg-black/5 opacity-50">
-                                                    <MdSecurity size={32} />
-                                                </div>
-                                                <span className="opacity-60 font-medium">No custom roles defined.</span>
-                                            </div>
-                                        )}
+                                <div className="space-y-4">
+                                    <div className="flex items-center justify-between">
+                                        <div className="text-sm opacity-70 font-medium" style={{ color: currentTheme.textColor }}>
+                                            {roles.length} Custom Roles
+                                        </div>
+                                        <button
+                                            onClick={() => console.log("Add Role clicked")}
+                                            className="px-4 py-2 rounded-lg text-white font-bold text-xs uppercase tracking-wide shadow-lg hover:shadow-xl active:scale-95 transition-all flex items-center gap-2"
+                                            style={{ backgroundColor: currentTheme.primary }}
+                                        >
+                                            <MdSecurity size={16} /> Add Role
+                                        </button>
                                     </div>
 
-                                    <div className="xl:col-span-8">
-                                        {selectedRole ? (
-                                            <div className="rounded-2xl border overflow-hidden shadow-sm bg-white"
-                                                style={{ borderColor: currentTheme.borderColor }}>
-                                                <div className="p-6 border-b" style={{ borderColor: currentTheme.borderColor }}>
-                                                    <h3 className="font-bold text-lg mb-1" style={{ color: currentTheme.headingColor }}>
-                                                        {selectedRoleDisplayName}
-                                                    </h3>
-                                                    <p className="text-sm opacity-70 leading-relaxed" style={{ color: currentTheme.textColor }}>
-                                                        {selectedRoleDescription}
-                                                    </p>
+                                    <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
+                                        <div className="xl:col-span-4 space-y-4">
+                                            {roles.length > 0 ? roles.map((role, idx) => {
+                                                const roleName = role.role || role.name || role.Name || role.label || "Unknown Role";
+                                                const displayName = String(roleName).replace(/_/g, " ").toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+                                                const roleId = String(role.id || role.Id || role._id || idx);
+                                                const roleDescription = role.role_title || role.description || role.title || "Custom defined role with specific permission sets.";
+                                                const isSelected = roleId === selectedRoleId;
+
+                                                return (
+                                                    <div
+                                                        key={roleId}
+                                                        onClick={() => setSelectedRoleId(roleId)}
+                                                        className={`group relative overflow-hidden rounded-2xl border p-5 transition-all cursor-pointer ${isSelected ? 'shadow-md' : 'hover:shadow-md'}`}
+                                                        style={{
+                                                            borderColor: isSelected ? currentTheme.primary : currentTheme.borderColor,
+                                                            backgroundColor: currentTheme.cardBg
+                                                        }}
+                                                    >
+                                                        <div className="absolute top-0 left-0 w-1 h-full opacity-100 transition-opacity"
+                                                            style={{ backgroundColor: isSelected ? currentTheme.primary : `${currentTheme.primary}40` }}></div>
+
+                                                        <div className="flex items-start justify-between mb-4">
+                                                            <div className="p-3 rounded-xl transition-colors shadow-sm"
+                                                                style={{ backgroundColor: currentTheme.primary + '15', color: currentTheme.primary }}>
+                                                                <MdSecurity size={24} />
+                                                            </div>
+                                                            <span className="text-[10px] font-mono px-2 py-1 rounded bg-gray-100 text-gray-500 font-bold border border-gray-200">
+                                                                ID: {roleId}
+                                                            </span>
+                                                        </div>
+
+                                                        <div className="mb-2">
+                                                            <h3 className="font-bold text-lg mb-1" style={{ color: currentTheme.headingColor }}>
+                                                                {displayName}
+                                                            </h3>
+                                                            <p className="text-sm opacity-70 leading-relaxed line-clamp-2 min-h-[2.5em]" style={{ color: currentTheme.textColor }}>
+                                                                {roleDescription}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            }) : (
+                                                <div className="py-16 text-center border-2 border-dashed rounded-2xl flex flex-col items-center gap-3"
+                                                    style={{ borderColor: currentTheme.borderColor, color: currentTheme.textColor }}>
+                                                    <div className="p-4 rounded-full bg-black/5 opacity-50">
+                                                        <MdSecurity size={32} />
+                                                    </div>
+                                                    <span className="opacity-60 font-medium">No custom roles defined.</span>
                                                 </div>
+                                            )}
+                                        </div>
 
-                                                <div className="bg-gray-50/50 p-4 xl:p-0">
-                                                    <table className="w-full text-left border-collapse table-fixed">
-                                                        <thead>
-                                                            <tr className="border-b" style={{ borderColor: currentTheme.borderColor }}>
-                                                                <th className="py-3 px-4 text-[10px] font-bold uppercase tracking-wider opacity-50 w-1/3 text-left">Module</th>
-                                                                {roleActions.map(action => (
-                                                                    <th key={action.key} className="py-3 px-4 text-center text-[10px] font-bold uppercase tracking-wider opacity-50">{action.label}</th>
-                                                                ))}
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody className="divide-y" style={{ borderColor: currentTheme.borderColor }}>
-                                                            {roleModules.map((module) => (
-                                                                <tr key={module.key} className="bg-transparent hover:bg-black/[0.02] transition-colors">
-                                                                    <td className="py-3 px-4">
-                                                                        <div className="flex items-center gap-2">
-                                                                            <span style={{ color: currentTheme.primary }} className="opacity-80">{module.icon}</span>
-                                                                            <span className="font-bold text-xs" style={{ color: currentTheme.headingColor }}>{module.label}</span>
-                                                                        </div>
-                                                                    </td>
-                                                                    {roleActions.map((action) => {
-                                                                        const hasAccess = checkPermission(selectedRole, module.key, action.key);
+                                        <div className="xl:col-span-8">
+                                            {selectedRole ? (
+                                                <div className="rounded-2xl border overflow-hidden shadow-sm bg-white"
+                                                    style={{ borderColor: currentTheme.borderColor }}>
+                                                    <div className="p-6 border-b" style={{ borderColor: currentTheme.borderColor }}>
+                                                        <h3 className="font-bold text-lg mb-1" style={{ color: currentTheme.headingColor }}>
+                                                            {selectedRoleDisplayName}
+                                                        </h3>
+                                                        <p className="text-sm opacity-70 leading-relaxed" style={{ color: currentTheme.textColor }}>
+                                                            {selectedRoleDescription}
+                                                        </p>
+                                                    </div>
 
-                                                                        return (
-                                                                            <td key={action.key} className="py-3 px-4 text-center">
-                                                                                {hasAccess ? (
-                                                                                    <div className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-green-100 text-green-600 shadow-sm">
-                                                                                        <MdCheck size={14} />
-                                                                                    </div>
-                                                                                ) : (
-                                                                                    <div className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-gray-100 text-gray-400 opacity-30">
-                                                                                        <MdClear size={14} />
-                                                                                    </div>
-                                                                                )}
-                                                                            </td>
-                                                                        );
-                                                                    })}
+                                                    <div className="bg-gray-50/50 p-4 xl:p-0">
+                                                        <table className="w-full text-left border-collapse table-fixed">
+                                                            <thead>
+                                                                <tr className="border-b" style={{ borderColor: currentTheme.borderColor }}>
+                                                                    <th className="py-3 px-4 text-[10px] font-bold uppercase tracking-wider opacity-50 w-1/3 text-left">Module</th>
+                                                                    {roleActions.map(action => (
+                                                                        <th key={action.key} className="py-3 px-4 text-center text-[10px] font-bold uppercase tracking-wider opacity-50">{action.label}</th>
+                                                                    ))}
                                                                 </tr>
-                                                            ))}
-                                                        </tbody>
-                                                    </table>
+                                                            </thead>
+                                                            <tbody className="divide-y" style={{ borderColor: currentTheme.borderColor }}>
+                                                                {roleModules.map((module) => (
+                                                                    <tr key={module.key} className="bg-transparent hover:bg-black/[0.02] transition-colors">
+                                                                        <td className="py-3 px-4">
+                                                                            <div className="flex items-center gap-2">
+                                                                                <span style={{ color: currentTheme.primary }} className="opacity-80">{module.icon}</span>
+                                                                                <span className="font-bold text-xs" style={{ color: currentTheme.headingColor }}>{module.label}</span>
+                                                                            </div>
+                                                                        </td>
+                                                                        {roleActions.map((action) => {
+                                                                            const hasAccess = checkPermission(selectedRole, module.key, action.key);
+
+                                                                            return (
+                                                                                <td key={action.key} className="py-3 px-4 text-center">
+                                                                                    {hasAccess ? (
+                                                                                        <div className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-green-100 text-green-600 shadow-sm">
+                                                                                            <MdCheck size={14} />
+                                                                                        </div>
+                                                                                    ) : (
+                                                                                        <div className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-gray-100 text-gray-400 opacity-30">
+                                                                                            <MdClear size={14} />
+                                                                                        </div>
+                                                                                    )}
+                                                                                </td>
+                                                                            );
+                                                                        })}
+                                                                    </tr>
+                                                                ))}
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        ) : (
-                                            <div className="py-16 text-center border-2 border-dashed rounded-2xl flex flex-col items-center gap-3"
-                                                style={{ borderColor: currentTheme.borderColor, color: currentTheme.textColor }}>
-                                                <div className="p-4 rounded-full bg-black/5 opacity-50">
-                                                    <MdSecurity size={32} />
+                                            ) : (
+                                                <div className="py-16 text-center border-2 border-dashed rounded-2xl flex flex-col items-center gap-3"
+                                                    style={{ borderColor: currentTheme.borderColor, color: currentTheme.textColor }}>
+                                                    <div className="p-4 rounded-full bg-black/5 opacity-50">
+                                                        <MdSecurity size={32} />
+                                                    </div>
+                                                    <span className="opacity-60 font-medium">Select a role to view permissions.</span>
                                                 </div>
-                                                <span className="opacity-60 font-medium">Select a role to view permissions.</span>
-                                            </div>
-                                        )}
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             )}

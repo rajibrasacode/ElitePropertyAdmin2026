@@ -246,8 +246,13 @@ export default function LoginPage() {
               </label>
               <div className="relative transition-all duration-300">
                 <div
-                  className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none group-focus-within:text-blue-500 transition-colors"
-                  style={{ color: currentTheme.textColor }}
+                  className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none transition-colors"
+                  style={{
+                    color:
+                      focusedField === "username"
+                        ? currentTheme.primary
+                        : currentTheme.textColor,
+                  }}
                 >
                   <MdEmail size={20} />
                 </div>
@@ -256,9 +261,8 @@ export default function LoginPage() {
                   {...register("username")}
                   onFocus={() => setFocusedField("username")}
                   onBlur={() => setFocusedField(null)}
-                  className={`block w-full pl-11 pr-4 py-3.5 border rounded-xl placeholder-inherit focus:outline-none transition-all duration-300 text-sm font-medium ${
-                    errors.username ? "border-red-500" : ""
-                  }`}
+                  className={`block w-full pl-11 pr-4 py-3.5 border rounded-xl placeholder-inherit focus:outline-none focus:ring-1 transition-all duration-300 text-sm font-medium ${errors.username ? "border-red-500" : ""
+                    }`}
                   style={
                     {
                       backgroundColor: currentTheme.background,
@@ -303,9 +307,8 @@ export default function LoginPage() {
                   {...register("password")}
                   onFocus={() => setFocusedField("password")}
                   onBlur={() => setFocusedField(null)}
-                  className={`block w-full pl-11 pr-11 py-3.5 border rounded-xl text-sm font-medium ${
-                    errors.password ? "border-red-500" : ""
-                  }`}
+                  className={`block w-full pl-11 pr-11 py-3.5 border rounded-xl text-sm font-medium focus:outline-none focus:ring-1 transition-all duration-300 ${errors.password ? "border-red-500" : ""
+                    }`}
                   style={{
                     backgroundColor: currentTheme.background,
                     borderColor: errors.password
@@ -314,7 +317,8 @@ export default function LoginPage() {
                         ? currentTheme.primary
                         : currentTheme.borderColor,
                     color: currentTheme.textColor,
-                  }}
+                    "--tw-ring-color": currentTheme.primary,
+                  } as React.CSSProperties}
                   placeholder="Enter your password"
                 />
 

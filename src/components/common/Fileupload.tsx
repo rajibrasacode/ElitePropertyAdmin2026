@@ -22,6 +22,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
     >
       <input
         type="file"
+        name="images"
         multiple
         onChange={onChange}
         className="hidden"
