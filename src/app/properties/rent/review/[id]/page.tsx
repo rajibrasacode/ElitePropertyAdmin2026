@@ -1,13 +1,31 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { MdOutlineBedroomParent, MdOutlineBathroom, MdSquareFoot, MdLocationOn, MdArrowBack, MdCheckCircle, MdCalendarToday, MdHouse, MdConstruction, MdAirlineSeatReclineNormal, MdPets, MdAttachMoney, MdSmokeFree, MdWater, MdPool, MdLocalParking, MdWifi, MdSecurity, MdFitnessCenter, MdElevator, MdBalcony, MdKitchen, MdAcUnit, MdLocalLaundryService } from "react-icons/md";
+import { MdOutlineBedroomParent, MdOutlineBathroom, MdSquareFoot, MdLocationOn, MdArrowBack, MdCheckCircle, MdCalendarToday, MdHouse, MdConstruction, MdAirlineSeatReclineNormal, MdPets, MdAttachMoney, MdSmokeFree, MdWater, MdPool, MdLocalParking, MdWifi, MdSecurity, MdFitnessCenter, MdElevator, MdBalcony, MdKitchen, MdAcUnit, MdLocalLaundryService, MdCheck, MdClose } from "react-icons/md";
 import { useTheme } from "@/providers/ThemeProvider";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { PropertyData } from "@/types/properties.types";
-// import { getPropertyByIdService } from "@/services/properties.service"; // Removed
-import { staticRentalProperties } from "../../page"; // Import static data
+import { activateRentalService, cancelRentalService, getRentalByIdService } from "@/services/rentals.service";
+import { getRentalImageCandidates, mapRentalToPropertyData } from "@/utils/rentalMapper";
+import { ConfirmModal } from "@/components/common/ConfirmModal";
+import { showErrorToast, showSuccessToast } from "@/utils/toast";
+
+const getErrorMessage = (error: unknown, fallback: string) => {
+    if (typeof error === "string") return error;
+    if (error && typeof error === "object" && "message" in error) {
+        const msg = (error as { message?: unknown }).message;
+        if (typeof msg === "string") return msg;
+    }
+    return fallback;
+};
+
+type CreatorInfo = {
+    fullName: string;
+    username: string;
+    profileImage: string;
+    phoneNumber: string;
+};
 
 export default function RentReviewPropertyPage() {
     const { currentTheme } = useTheme();
@@ -18,34 +36,46 @@ export default function RentReviewPropertyPage() {
     const [loading, setLoading] = useState(true);
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const [isActionModalOpen, setIsActionModalOpen] = useState(false);
+    const [pendingAction, setPendingAction] = useState<'approve' | 'reject' | null>(null);
+    const [actionLoading, setActionLoading] = useState(false);
+    const [creator, setCreator] = useState<CreatorInfo | null>(null);
 
     useEffect(() => {
         const fetchProperty = async () => {
             if (!params.id) return;
             setLoading(true);
             try {
-                // Determine source of static data (active or pending)
-                // For simplicity, we just look in the exported staticRentalProperties which we populated with both in the listing page logic?
-                // Wait, in previous step I only exported staticRentalProperties (active + pending were merged or separate?)
-                // Accessing the file content again shows I defined `staticRentalProperties` which included one pending item at the end.
-                // So I can just search in that array.
-
-                // Simulate network delay
-                await new Promise(resolve => setTimeout(resolve, 500));
-
-                const foundProperty = staticRentalProperties.find(p => p.id.toString() === params.id);
-
-                if (foundProperty) {
-                    setProperty(foundProperty);
-                    if (foundProperty.images && foundProperty.images.length > 0) {
-                        setSelectedImage(foundProperty.images[0]);
+                const rental = await getRentalByIdService(params.id as string);
+                if (rental) {
+                    const mapped = mapRentalToPropertyData(rental);
+                    setProperty(mapped);
+                    if (mapped.images && mapped.images.length > 0) {
+                        setSelectedImage(mapped.images[0]);
+                    }
+                    const raw = rental as Record<string, unknown>;
+                    const creatorRaw = raw.creator as Record<string, unknown> | undefined;
+                    if (creatorRaw && typeof creatorRaw === "object") {
+                        const first = typeof creatorRaw.first_name === "string" ? creatorRaw.first_name : "";
+                        const last = typeof creatorRaw.last_name === "string" ? creatorRaw.last_name : "";
+                        const username = typeof creatorRaw.username === "string" ? creatorRaw.username : "";
+                        const fullName = `${first} ${last}`.trim();
+                        const profileImageRaw = typeof creatorRaw.profile_image === "string" ? creatorRaw.profile_image : "";
+                        const phoneNumber = typeof creatorRaw.phone_number === "string" ? creatorRaw.phone_number : "";
+                        const profileImage = getRentalImageCandidates(profileImageRaw)[0] || profileImageRaw;
+                        setCreator({
+                            fullName: fullName || username || "Listing Agent",
+                            username: username || "",
+                            profileImage: profileImage || "",
+                            phoneNumber: phoneNumber || "",
+                        });
                     }
                 } else {
                     setError("Property not found");
                 }
-            } catch (err: any) {
+            } catch (err: unknown) {
                 console.error("Failed to fetch property:", err);
-                setError(err.message || "Failed to load property details");
+                setError(getErrorMessage(err, "Failed to load property details"));
             } finally {
                 setLoading(false);
             }
@@ -53,6 +83,37 @@ export default function RentReviewPropertyPage() {
 
         fetchProperty();
     }, [params.id]);
+
+    const handleApproveClick = () => {
+        setPendingAction('approve');
+        setIsActionModalOpen(true);
+    };
+
+    const handleRejectClick = () => {
+        setPendingAction('reject');
+        setIsActionModalOpen(true);
+    };
+
+    const handleConfirmAction = async () => {
+        if (!property || !pendingAction) return;
+        setActionLoading(true);
+        try {
+            if (pendingAction === 'approve') {
+                await activateRentalService(property.id);
+                showSuccessToast("Property Approved Successfully!");
+            } else {
+                await cancelRentalService(property.id);
+                showSuccessToast("Property Rejected.");
+            }
+            router.push("/properties/rent");
+        } catch (err: unknown) {
+            showErrorToast(getErrorMessage(err, `Failed to ${pendingAction} property.`));
+        } finally {
+            setActionLoading(false);
+            setIsActionModalOpen(false);
+            setPendingAction(null);
+        }
+    };
 
     if (loading) {
         return (
@@ -77,7 +138,25 @@ export default function RentReviewPropertyPage() {
 
     const displayImage = selectedImage || (property.images && property.images.length > 0
         ? property.images[0]
-        : "https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&q=80&w=1000");
+        : "");
+    const isPendingProperty = property.status === "Pending";
+
+    const handleDetailImageError = (event: React.SyntheticEvent<HTMLImageElement, Event>, raw: string) => {
+        const img = event.currentTarget;
+        const candidates = getRentalImageCandidates(raw);
+        const current = img.src;
+        const next = candidates.find((url) => url !== current);
+        if (next) {
+            img.src = next;
+            return;
+        }
+        img.style.display = "none";
+        const wrapper = img.parentElement;
+        if (wrapper) {
+            const fallback = wrapper.querySelector(".rent-detail-fallback") as HTMLElement | null;
+            if (fallback) fallback.style.display = "flex";
+        }
+    };
 
     return (
         <div className="mx-auto space-y-8 pb-20">
@@ -88,7 +167,38 @@ export default function RentReviewPropertyPage() {
                     <MdArrowBack size={20} />
                     <span className="font-bold">Back to Rent Listings</span>
                 </Link>
+                {isPendingProperty && (
+                    <div className="flex gap-3">
+                        <button
+                            onClick={handleRejectClick}
+                            className="px-5 py-2.5 rounded-xl font-bold text-sm bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors flex items-center gap-2"
+                        >
+                            <MdClose size={18} />
+                            Reject Property
+                        </button>
+                        <button
+                            onClick={handleApproveClick}
+                            className="px-5 py-2.5 rounded-xl font-bold text-sm text-white shadow-lg hover:brightness-110 transition-all flex items-center gap-2"
+                            style={{ backgroundColor: currentTheme.primary }}
+                        >
+                            <MdCheck size={18} />
+                            Approve Property
+                        </button>
+                    </div>
+                )}
             </div>
+            <ConfirmModal
+                isOpen={isActionModalOpen}
+                onClose={() => setIsActionModalOpen(false)}
+                onConfirm={handleConfirmAction}
+                title={pendingAction === 'approve' ? "Approve Property" : "Reject Property"}
+                message={pendingAction === 'approve'
+                    ? "Are you sure you want to approve this property? It will become active immediately."
+                    : "Are you sure you want to reject this property? This action cannot be undone."}
+                confirmLabel={pendingAction === 'approve' ? "Approve" : "Reject"}
+                isLoading={actionLoading}
+                confirmButtonColor={pendingAction === 'approve' ? currentTheme.primary : '#ef4444'}
+            />
 
             {/* Main Content Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
@@ -98,11 +208,21 @@ export default function RentReviewPropertyPage() {
 
                     {/* Main Image */}
                     <div className="aspect-video w-full rounded-2xl relative shadow-sm overflow-hidden group bg-gray-100">
-                        <img
-                            src={displayImage}
-                            alt={property.street_address}
-                            className="w-full h-full object-cover transition-transform duration-700 hover:scale-105"
-                        />
+                        {displayImage ? (
+                            <img
+                                src={getRentalImageCandidates(displayImage)[0] || displayImage}
+                                alt={property.street_address}
+                                className="w-full h-full object-cover transition-transform duration-700 hover:scale-105"
+                                onError={(e) => handleDetailImageError(e, displayImage)}
+                            />
+                        ) : (
+                            <div className="rent-detail-fallback w-full h-full flex items-center justify-center bg-slate-100">
+                                <span className="text-sm font-semibold text-slate-500">No image uploaded from API</span>
+                            </div>
+                        )}
+                        <div className="rent-detail-fallback w-full h-full items-center justify-center bg-slate-100 hidden">
+                            <span className="text-sm font-semibold text-slate-500">No image uploaded from API</span>
+                        </div>
                         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none"></div>
 
                         <div className="absolute bottom-4 left-4 flex gap-2 pointer-events-none">
@@ -125,7 +245,12 @@ export default function RentReviewPropertyPage() {
                                     className={`aspect-square rounded-xl overflow-hidden cursor-pointer transition-all border-2 ${selectedImage === img ? 'ring-2 ring-offset-1 ring-blue-500 border-transparent scale-95' : 'border-transparent hover:opacity-80'}`}
                                     style={{ borderColor: selectedImage === img ? currentTheme.primary : 'transparent' }}
                                 >
-                                    <img src={img} alt={`Gallery ${idx}`} className="w-full h-full object-cover" />
+                                    <img
+                                        src={getRentalImageCandidates(img)[0] || img}
+                                        alt={`Gallery ${idx}`}
+                                        className="w-full h-full object-cover"
+                                        onError={(e) => handleDetailImageError(e, img)}
+                                    />
                                 </div>
                             ))}
                         </div>
@@ -340,20 +465,32 @@ export default function RentReviewPropertyPage() {
                             <div className="flex justify-between text-sm">
                                 <span className="opacity-70" style={{ color: currentTheme.textColor }}>Available From</span>
                                 <span className="font-bold" style={{ color: currentTheme.headingColor }}>{property.available_from ? new Date(property.available_from).toLocaleDateString() : "Now"}</span>
-<span className="font-bold" style={{ color: currentTheme.headingColor }}>{property.available_from || "Now"}</span>
                             </div>
                         </div>
 
                         {/* Agent */}
                         <div className="flex items-center gap-3 pt-4 border-t" style={{ borderColor: currentTheme.borderColor }}>
-                            <img
-                                src="https://images.unsplash.com/photo-1560250097-0b93528c311a?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=200&q=80"
-                                alt="Elite Realty"
-                                className="w-10 h-10 rounded-full object-cover"
-                            />
+                            {creator?.profileImage ? (
+                                <img
+                                    src={creator.profileImage}
+                                    alt={creator.fullName || "Listing Agent"}
+                                    className="w-10 h-10 rounded-full object-cover"
+                                />
+                            ) : (
+                                <div className="w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold bg-slate-200 text-slate-700">
+                                    {creator?.fullName?.slice(0, 1) || "A"}
+                                </div>
+                            )}
                             <div>
-                                <div className="font-bold text-sm" style={{ color: currentTheme.headingColor }}>Elite Realty</div>
-                                <div className="text-xs opacity-70" style={{ color: currentTheme.textColor }}>Listing Agent</div>
+                                <div className="font-bold text-sm" style={{ color: currentTheme.headingColor }}>
+                                    {creator?.fullName || "Listing Agent"}
+                                </div>
+                                
+                                {creator?.username && (
+                                    <div className="text-[11px] opacity-60" style={{ color: currentTheme.textColor }}>
+                                  {creator.username}
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>

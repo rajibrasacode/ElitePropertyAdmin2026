@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { MdAdd, MdSearch, MdFilterList, MdMoreHoriz, MdOutlineBedroomParent, MdOutlineBathroom, MdSquareFoot, MdLocationOn, MdChevronLeft, MdChevronRight, MdKey } from "react-icons/md";
+import { MdAdd, MdSearch, MdFilterList, MdMoreHoriz, MdOutlineBedroomParent, MdOutlineBathroom, MdSquareFoot, MdLocationOn, MdChevronLeft, MdChevronRight } from "react-icons/md";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTheme } from "@/providers/ThemeProvider";
@@ -8,271 +8,37 @@ import { PropertyData } from "@/types/properties.types";
 import { ConfirmModal } from "@/components/common/ConfirmModal";
 import { showSuccessToast, showErrorToast } from "@/utils/toast";
 
-// STATIC DATA FOR RENT PAGE
-export const staticRentalProperties: PropertyData[] = [
-    {
-        id: "rent-1",
-        listing_type: "Rent",
-        street_address: "4521 Elm Street",
-        unit_apt: "Apt 2B",
-        city: "Springfield",
-        state: "IL",
-        zip_code: "62704",
-        county: "Sangamon",
-        property_type: "Apartment",
-        bedrooms: 2,
-        bathrooms: 1,
-        square_feet: 850,
-        lot_size: "N/A",
-        year_built: 2015,
-        garage_spaces: 1,
-        parking_spaces: 1,
-        rent_price: 1200,
-        rent_frequency: "Monthly",
-        security_deposit: 1200,
-        available_from: "2024-03-01",
-        lease_duration: 12, // months
-        application_fee: 50,
-        move_in_fees: 200,
-        smoking_policy: "Not Allowed",
-        utilities_included: ["Water", "Trash", "Gas"],
-        amenities: ["Pool", "Gym", "Elevator", "Balcony"],
-        is_furnished: true,
-        pets_allowed: true,
-        images: [
-            "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&q=80&w=1000",
-            "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&q=80&w=1000",
-            "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&q=80&w=1000"
-        ],
-        listing_date: "2024-01-15",
-        listing_price: 0,
-        asking_price: 0,
-        interior_condition: "Excellent",
-        exterior_paint_required: false,
-        new_floor_required: false,
-        kitchen_renovation_required: false,
-        bathroom_renovation_required: false,
-        drywall_repair_required: false,
-        interior_paint_required: false,
-        arv: 0,
-        repair_estimate: 0,
-        holding_costs: 0,
-        transaction_type: "Rent",
-        assignment_fee: 0,
-        property_description: "Modern apartment in downtown with great views and amenities.",
-        seller_notes: "Tenant pays electric.",
-        roof_age: "New",
-        roof_status: "Excellent",
-        status: "Active"
-    },
-    {
-        id: "rent-2",
-        listing_type: "Rent",
-        street_address: "789 Oak Avenue",
-        unit_apt: "",
-        city: "Chicago",
-        state: "IL",
-        zip_code: "60614",
-        county: "Cook",
-        property_type: "Single-Family",
-        bedrooms: 3,
-        bathrooms: 2,
-        square_feet: 1500,
-        lot_size: "0.15 acres",
-        year_built: 1998,
-        garage_spaces: 2,
-        parking_spaces: 2,
-        rent_price: 2800,
-        rent_frequency: "Monthly",
-        security_deposit: 3000,
-        available_from: "2024-04-01",
-        lease_duration: 12,
-        application_fee: 75,
-        move_in_fees: 0,
-        smoking_policy: "Outdoors Only",
-        utilities_included: ["Trash"],
-        amenities: ["Garden", "Garage", "Fireplace"],
-        is_furnished: false,
-        pets_allowed: true,
-        images: ["https://images.unsplash.com/photo-1568605114967-8130f3a36994?auto=format&fit=crop&q=80&w=1000"],
-        listing_date: "2024-02-01",
-        listing_price: 0,
-        asking_price: 0,
-        interior_condition: "Good",
-        exterior_paint_required: false,
-        new_floor_required: false,
-        kitchen_renovation_required: false,
-        bathroom_renovation_required: false,
-        drywall_repair_required: false,
-        interior_paint_required: true,
-        arv: 0,
-        repair_estimate: 0,
-        holding_costs: 0,
-        transaction_type: "Rent",
-        assignment_fee: 0,
-        property_description: "Spacious family home with a backyard.",
-        seller_notes: "",
-        roof_age: "5 years",
-        roof_status: "Good",
-        status: "Active"
-    },
-    {
-        id: "rent-3",
-        listing_type: "Rent",
-        street_address: "3300 Lake Shore Dr",
-        unit_apt: "Penthouse",
-        city: "Chicago",
-        state: "IL",
-        zip_code: "60657",
-        county: "Cook",
-        property_type: "Condo",
-        bedrooms: 4,
-        bathrooms: 3.5,
-        square_feet: 3200,
-        lot_size: "N/A",
-        year_built: 2020,
-        garage_spaces: 2,
-        parking_spaces: 0,
-        rent_price: 8500,
-        rent_frequency: "Monthly",
-        security_deposit: 10000,
-        available_from: "2024-02-20",
-        lease_duration: 24,
-        application_fee: 150,
-        move_in_fees: 500,
-        smoking_policy: "Not Allowed",
-        utilities_included: ["Water", "Gas", "Internet", "Cable"],
-        amenities: ["Doorman", "Gym", "Pool", "Rooftop", "Parking"],
-        is_furnished: true,
-        pets_allowed: false,
-        images: ["https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&q=80&w=1000"],
-        listing_date: "2024-01-20",
-        listing_price: 0,
-        asking_price: 0,
-        interior_condition: "Luxury",
-        exterior_paint_required: false,
-        new_floor_required: false,
-        kitchen_renovation_required: false,
-        bathroom_renovation_required: false,
-        drywall_repair_required: false,
-        interior_paint_required: false,
-        arv: 0,
-        repair_estimate: 0,
-        holding_costs: 0,
-        transaction_type: "Rent",
-        assignment_fee: 0,
-        property_description: "Luxury penthouse with lake views.",
-        seller_notes: "",
-        roof_age: "New",
-        roof_status: "Excellent",
-        status: "Active"
-    },
-    {
-        id: "rent-4",
-        listing_type: "Rent",
-        street_address: "101 Maple Lane",
-        unit_apt: "",
-        city: "Naperville",
-        state: "IL",
-        zip_code: "60540",
-        county: "DuPage",
-        property_type: "Townhouse",
-        bedrooms: 2,
-        bathrooms: 2.5,
-        square_feet: 1300,
-        lot_size: "N/A",
-        year_built: 2010,
-        garage_spaces: 1,
-        parking_spaces: 1,
-        rent_price: 2100,
-        rent_frequency: "Monthly",
-        security_deposit: 2100,
-        available_from: "2024-03-15",
-        lease_duration: 12,
-        is_furnished: false,
-        pets_allowed: true,
-        images: ["https://images.unsplash.com/photo-1600596542815-2a4d04774c13?auto=format&fit=crop&q=80&w=1000"],
-        listing_date: "2024-02-05",
-        listing_price: 0,
-        asking_price: 0,
-        interior_condition: "Good",
-        exterior_paint_required: false,
-        new_floor_required: false,
-        kitchen_renovation_required: false,
-        bathroom_renovation_required: false,
-        drywall_repair_required: false,
-        interior_paint_required: false,
-        arv: 0,
-        repair_estimate: 0,
-        holding_costs: 0,
-        transaction_type: "Rent",
-        assignment_fee: 0,
-        property_description: "Cozy townhouse in a quiet neighborhood.",
-        seller_notes: "",
-        roof_age: "10 years",
-        roof_status: "Good",
-        status: "Active"
-    },
-    {
-        id: "rent-pending-1",
-        listing_type: "Rent",
-        street_address: "2450 Willow Creek Rd",
-        unit_apt: "Unit 5A",
-        city: "Aurora",
-        state: "IL",
-        zip_code: "60506",
-        county: "Kane",
-        // country: "USA",
-        property_type: "Apartment",
-        bedrooms: 2,
-        bathrooms: 2,
-        square_feet: 980,
-        lot_size: "N/A",
-        year_built: 2018,
-        garage_spaces: 1,
-        parking_spaces: 1,
-        rent_price: 1850,
-        rent_frequency: "Monthly",
-        security_deposit: 1850,
-        available_from: "2026-03-01",
-        lease_duration: 12,
-        application_fee: 50,
-        is_furnished: false,
-        pets_allowed: true,
-        images: ["https://images.unsplash.com/photo-1494526585095-c41746248156?auto=format&fit=crop&q=80&w=1000"],
-        listing_date: "2026-02-18",
-        listing_price: 0,
-        asking_price: 0,
-        interior_condition: "Excellent",
-        exterior_paint_required: false,
-        new_floor_required: false,
-        kitchen_renovation_required: false,
-        bathroom_renovation_required: false,
-        drywall_repair_required: false,
-        interior_paint_required: false,
-        arv: 0,
-        repair_estimate: 0,
-        holding_costs: 0,
-        transaction_type: "Rent",
-        assignment_fee: 0,
-        property_description: "Pending approval: updated apartment near schools and shopping.",
-        seller_notes: "Awaiting admin verification.",
-        roof_age: "6 years",
-        roof_status: "Good",
-        status: "Pending" // Explicitly pending
+import { getRentals, activateRentalService, cancelRentalService, deactivateRentalService, deleteRentalService, getRentalByIdService } from "@/services/rentals.service";
+import { getRentalImageCandidates, mapRentalToPropertyData } from "@/utils/rentalMapper";
+
+const getErrorMessage = (error: unknown, fallback: string) => {
+    if (typeof error === "string") return error;
+    if (error && typeof error === "object" && "message" in error) {
+        const msg = (error as { message?: unknown }).message;
+        if (typeof msg === "string") return msg;
     }
-];
+    return fallback;
+};
+
+type CreatorPreview = {
+    fullName: string;
+    email: string;
+    profileImage: string;
+};
 
 export default function RentPropertiesPage() {
     const { currentTheme } = useTheme();
     const router = useRouter();
 
+    const [allProperties, setAllProperties] = useState<PropertyData[]>([]);
     const [properties, setProperties] = useState<PropertyData[]>([]);
     const [activeTab, setActiveTab] = useState<'all' | 'pending'>('all'); // Tab State
     const [loading, setLoading] = useState(true);
     const [showFilters, setShowFilters] = useState(false);
     const [activeMenuId, setActiveMenuId] = useState<number | string | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const [imageOverrides, setImageOverrides] = useState<Record<string, string>>({});
+    const [creatorOverrides, setCreatorOverrides] = useState<Record<string, CreatorPreview>>({});
 
     // Delete State
     const [deleteId, setDeleteId] = useState<string | number | null>(null);
@@ -289,7 +55,7 @@ export default function RentPropertiesPage() {
     const [filterStatus, setFilterStatus] = useState("All");
     // Default Listing Type to Rent, but allow user to switch if needed (though this page is specifically for Rent)
     // We lock this to Rent or Both logically.
-    const [filterListingType, setFilterListingType] = useState("Rent");
+    const [filterListingType] = useState("Rent");
     const [filterPropertyType, setFilterPropertyType] = useState("All"); // Single Family, etc.
     const [minPrice, setMinPrice] = useState("");
     const [maxPrice, setMaxPrice] = useState("");
@@ -326,49 +92,91 @@ export default function RentPropertiesPage() {
         if (!pendingPropertyId || !pendingAction) return;
 
         setActionLoading(true);
-        // Simulate API delay
-        setTimeout(() => {
+        try {
             if (pendingAction === 'approve') {
+                await activateRentalService(pendingPropertyId);
                 showSuccessToast("Property approved successfully!");
-                // Move from pending to active in static data (mock)
-                const propIndex = staticRentalProperties.findIndex(p => p.id === pendingPropertyId);
-                if (propIndex >= 0) {
-                    staticRentalProperties[propIndex].status = 'Active';
-                }
             } else {
+                await cancelRentalService(pendingPropertyId);
                 showSuccessToast("Property rejected successfully!");
-                // Remove from static data (mock)
-                const propIndex = staticRentalProperties.findIndex(p => p.id === pendingPropertyId);
-                if (propIndex >= 0) {
-                    staticRentalProperties.splice(propIndex, 1);
-                }
             }
+            setRefreshKey(prev => prev + 1); // Refresh UI
+        } catch (err: unknown) {
+            showErrorToast(getErrorMessage(err, `Failed to ${pendingAction} property.`));
+        } finally {
             setActionLoading(false);
             setIsActionModalOpen(false);
             setPendingAction(null);
             setPendingPropertyId(null);
-            setRefreshKey(prev => prev + 1); // Refresh UI
-        }, 1000);
+        }
     };
 
     useEffect(() => {
-        // Fetch Properties (Simulated)
-        const fetchProperties = () => {
+        const fetchProperties = async () => {
             setLoading(true);
             try {
-                // Filter Static Data
-                let allProps = staticRentalProperties;
+                const response = await getRentals({
+                    page: 1,
+                    limit: 300,
+                    status: activeTab === "pending" ? "pending" : undefined,
+                });
+                const mappedList = (response.data || []).map((item) => mapRentalToPropertyData(item as Record<string, unknown>));
+                const missingImageIds = mappedList
+                    .filter((p) => !p.images || p.images.length === 0)
+                    .map((p) => p.id)
+                    .filter((id) => id !== null && id !== undefined);
 
-                // 1. Filter by Tab
-                let tabFiltered = allProps;
-                if (activeTab === 'pending') {
-                    tabFiltered = allProps.filter(p => p.id.toString().includes('pending') || p.status === 'Pending');
+                if (missingImageIds.length === 0) {
+                    setAllProperties(mappedList);
                 } else {
-                    tabFiltered = allProps.filter(p => !p.id.toString().includes('pending') && p.status !== 'Pending');
-                }
+                    const detailResults = await Promise.all(
+                        missingImageIds.map(async (id) => {
+                            try {
+                                const detail = await getRentalByIdService(id);
+                                if (!detail) return null;
+                                return mapRentalToPropertyData(detail);
+                            } catch {
+                                return null;
+                            }
+                        }),
+                    );
 
-                // 2. Apply Search & Filters
-                const filtered = tabFiltered.filter(property => {
+                    const detailImageMap = new Map<string, string[]>();
+                    detailResults.forEach((item) => {
+                        if (item && item.id !== undefined && item.id !== null && item.images && item.images.length > 0) {
+                            detailImageMap.set(String(item.id), item.images);
+                        }
+                    });
+
+                    const merged = mappedList.map((item) => {
+                        const detailImages = detailImageMap.get(String(item.id));
+                        if ((!item.images || item.images.length === 0) && detailImages && detailImages.length > 0) {
+                            return { ...item, images: detailImages };
+                        }
+                        return item;
+                    });
+
+                    setAllProperties(merged);
+                }
+            } catch (err: unknown) {
+                console.error("Failed to fetch properties", err);
+                setError(getErrorMessage(err, "Failed to load rentals."));
+                setAllProperties([]);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchProperties();
+    }, [activeTab, refreshKey]);
+
+    useEffect(() => {
+        try {
+                const tabFiltered = activeTab === "pending"
+                    ? allProperties.filter((p) => p.status === "Pending")
+                    : allProperties.filter((p) => p.status !== "Pending");
+
+                const filtered = tabFiltered.filter((property) => {
                     const effectivePrice = property.rent_price || property.listing_price || 0;
                     const status = property.status || "Active";
                     const listingType = property.transaction_type || property.listing_type || "Rent";
@@ -379,7 +187,6 @@ export default function RentPropertiesPage() {
 
                     const matchesStatus = filterStatus === "All" || status === filterStatus;
                     // We specifically check if it includes 'Rent' or 'Both'
-                    const isRent = listingType === "Rent" || listingType === "Both";
                     const matchesListingType = filterListingType === "All" || listingType === filterListingType || listingType === "Both";
                     const matchesPropertyType = filterPropertyType === "All" || propType === filterPropertyType;
                     const matchesSearch = title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -397,33 +204,24 @@ export default function RentPropertiesPage() {
                         matchesMinPrice && matchesMaxPrice && matchesBeds && matchesBaths && matchesPets && matchesFurnished;
                 });
 
-                // 3. Pagination
                 const total = filtered.length;
-                const totalPages = Math.ceil(total / pagination.limit);
-                const startIndex = (pagination.page - 1) * pagination.limit;
+                const totalPages = Math.max(1, Math.ceil(total / pagination.limit));
+                const safePage = Math.min(pagination.page, totalPages);
+                const startIndex = (safePage - 1) * pagination.limit;
                 const paginatedDocs = filtered.slice(startIndex, startIndex + pagination.limit);
 
                 setProperties(paginatedDocs);
                 setPagination(prev => ({
                     ...prev,
+                    page: safePage,
                     total: total,
                     totalPages: totalPages
                 }));
-
-            } catch (error) {
-                console.error("Failed to fetch properties", error);
+            } catch (err) {
+                console.error("Failed to filter properties", err);
                 setError("Failed to load data.");
-            } finally {
-                setLoading(false);
             }
-        };
-
-        const timeoutId = setTimeout(() => {
-            fetchProperties();
-        }, 300); // Simulate network delay
-
-        return () => clearTimeout(timeoutId);
-    }, [pagination.page, searchQuery, filterListingType, activeTab,
+    }, [allProperties, pagination.page, searchQuery, filterListingType, activeTab,
         filterStatus,
         filterPropertyType,
         minPrice,
@@ -434,6 +232,60 @@ export default function RentPropertiesPage() {
         furnished,
         refreshKey]);
 
+    useEffect(() => {
+        const hydrateMissingImages = async () => {
+            const targets = properties
+                .filter((p) =>
+                    ((!p.images || p.images.length === 0) && !imageOverrides[String(p.id)]) ||
+                    !creatorOverrides[String(p.id)],
+                )
+                .map((p) => p.id);
+
+            if (targets.length === 0) return;
+
+            const updates: Record<string, string> = {};
+            const creatorUpdates: Record<string, CreatorPreview> = {};
+            for (const id of targets) {
+                try {
+                    const detail = await getRentalByIdService(id);
+                    if (!detail) continue;
+                    const mapped = mapRentalToPropertyData(detail);
+                    if (mapped.images && mapped.images.length > 0) {
+                        updates[String(id)] = mapped.images[0];
+                    }
+
+                    const raw = detail as Record<string, unknown>;
+                    const creatorRaw = raw.creator as Record<string, unknown> | undefined;
+                    if (creatorRaw && typeof creatorRaw === "object") {
+                        const first = typeof creatorRaw.first_name === "string" ? creatorRaw.first_name : "";
+                        const last = typeof creatorRaw.last_name === "string" ? creatorRaw.last_name : "";
+                        const username = typeof creatorRaw.username === "string" ? creatorRaw.username : "";
+                        const fullName = `${first} ${last}`.trim() || username || "N/A";
+                        const email = typeof creatorRaw.email === "string" ? creatorRaw.email : "";
+                        const rawProfile = typeof creatorRaw.profile_image === "string" ? creatorRaw.profile_image : "";
+                        const profileImage = getRentalImageCandidates(rawProfile)[0] || rawProfile;
+                        creatorUpdates[String(id)] = {
+                            fullName,
+                            email: email || username || "No email",
+                            profileImage,
+                        };
+                    }
+                } catch {
+                    // ignore single record hydrate failure
+                }
+            }
+
+            if (Object.keys(updates).length > 0) {
+                setImageOverrides((prev) => ({ ...prev, ...updates }));
+            }
+            if (Object.keys(creatorUpdates).length > 0) {
+                setCreatorOverrides((prev) => ({ ...prev, ...creatorUpdates }));
+            }
+        };
+
+        hydrateMissingImages();
+    }, [properties, imageOverrides, creatorOverrides]);
+
     const initiateDelete = (id: number | string) => {
         setDeleteId(id);
         setActiveMenuId(null);
@@ -443,28 +295,43 @@ export default function RentPropertiesPage() {
         if (!deleteId) return;
         setIsDeleteLoading(true);
 
-        setTimeout(() => {
-            // Remove from static data
-            const propIndex = staticRentalProperties.findIndex(p => p.id === deleteId);
-            if (propIndex >= 0) {
-                staticRentalProperties.splice(propIndex, 1);
-            }
+        deleteRentalService(deleteId)
+            .then(() => {
+                setProperties(prev => prev.filter(p => p.id !== deleteId));
+                setPagination(prev => ({
+                    ...prev,
+                    total: Math.max(0, prev.total - 1)
+                }));
+                setDeleteId(null);
+                showSuccessToast("Property deleted successfully");
+                setRefreshKey(prev => prev + 1);
+            })
+            .catch((err: unknown) => {
+                showErrorToast(getErrorMessage(err, "Failed to delete property."));
+            })
+            .finally(() => {
+                setIsDeleteLoading(false);
+            });
+    };
 
-            setProperties(prev => prev.filter(p => p.id !== deleteId));
-            setPagination(prev => ({
-                ...prev,
-                total: Math.max(0, prev.total - 1)
-            }));
-            setDeleteId(null);
-            setIsDeleteLoading(false);
-            showSuccessToast("Property deleted successfully (Simulated)");
+    const handleToggleRentalStatus = async (property: PropertyData) => {
+        try {
+            if (property.status === "Inactive") {
+                await activateRentalService(property.id);
+                showSuccessToast("Rental activated successfully");
+            } else {
+                await deactivateRentalService(property.id);
+                showSuccessToast("Rental deactivated successfully");
+            }
+            setActiveMenuId(null);
             setRefreshKey(prev => prev + 1);
-        }, 800);
+        } catch (err: unknown) {
+            showErrorToast(getErrorMessage(err, "Failed to update rental status."));
+        }
     };
 
     const resetFilters = () => {
         setFilterStatus("All");
-        setFilterListingType("Rent");
         setFilterPropertyType("All");
         setMinPrice("");
         setMaxPrice("");
@@ -474,6 +341,32 @@ export default function RentPropertiesPage() {
         setFurnished("All");
         setSearchQuery("");
         setPagination(prev => ({ ...prev, page: 1 }));
+    };
+
+    const getListingImage = (property: PropertyData) => {
+        const override = imageOverrides[String(property.id)];
+        if (override) return override;
+        if (property.images && property.images.length > 0 && property.images[0]) {
+            return property.images[0];
+        }
+        return "";
+    };
+
+    const handleListingImageError = (event: React.SyntheticEvent<HTMLImageElement, Event>, raw: string) => {
+        const img = event.currentTarget;
+        const candidates = getRentalImageCandidates(raw);
+        const current = img.src;
+        const next = candidates.find((url) => url !== current);
+        if (next) {
+            img.src = next;
+            return;
+        }
+        img.style.display = "none";
+        const wrapper = img.parentElement;
+        if (wrapper) {
+            const fallback = wrapper.querySelector(".rent-image-fallback") as HTMLElement | null;
+            if (fallback) fallback.style.display = "flex";
+        }
     };
 
     return (
@@ -548,7 +441,7 @@ export default function RentPropertiesPage() {
                             <MdFilterList size={18} />
                             Filter
                         </button>
-                        <Link href="/properties/add" className="flex-1 sm:flex-none">
+                        <Link href="/properties/rent/add" className="flex-1 sm:flex-none">
                             <button
                                 className="w-full px-5 py-2.5 text-white rounded-lg shadow-sm hover:brightness-110 transition-all font-bold text-sm flex items-center justify-center gap-2 whitespace-nowrap"
                                 style={{ backgroundColor: currentTheme.primary }}
@@ -728,11 +621,23 @@ export default function RentPropertiesPage() {
                         >
                             {/* Image Placeholder */}
                             <div className="h-48 w-full relative overflow-hidden">
-                                <img
-                                    src={property.images && property.images.length > 0 ? property.images[0] : "https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&q=80&w=1000"}
-                                    alt={property.street_address || "Property"}
-                                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                                />
+                                {getListingImage(property) ? (
+                                    <>
+                                        <img
+                                            src={getRentalImageCandidates(getListingImage(property))[0] || getListingImage(property)}
+                                            alt={property.street_address || "Property"}
+                                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                                            onError={(e) => handleListingImageError(e, getListingImage(property))}
+                                        />
+                                        <div className="rent-image-fallback w-full h-full items-center justify-center bg-slate-100 hidden">
+                                            <span className="text-xs font-semibold text-slate-500">No image uploaded</span>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <div className="rent-image-fallback w-full h-full flex items-center justify-center bg-slate-100">
+                                        <span className="text-xs font-semibold text-slate-500">No image uploaded</span>
+                                    </div>
+                                )}
                                 <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-60"></div>
 
                                 <div
@@ -744,8 +649,8 @@ export default function RentPropertiesPage() {
                                 >
                                     {property.listing_type || "Rent"}
                                 </div>
-                                <div className={`absolute top-4 right-4 px-3 py-1 rounded-lg text-xs font-bold text-white shadow-sm ${property.status === 'Pending' ? 'bg-orange-500' : 'bg-emerald-500'}`}>
-                                    {property.status === 'Pending' ? 'Pending' : 'Active'}
+                                <div className={`absolute top-4 right-4 px-3 py-1 rounded-lg text-xs font-bold text-white shadow-sm ${property.status === 'Pending' ? 'bg-orange-500' : property.status === 'Inactive' ? 'bg-amber-500' : property.status === 'Cancelled' ? 'bg-rose-500' : 'bg-emerald-500'}`}>
+                                    {property.status || 'Active'}
                                 </div>
                             </div>
 
@@ -793,14 +698,25 @@ export default function RentPropertiesPage() {
                             <div className=" pt-4 border-t flex items-center justify-between" style={{ borderColor: currentTheme.borderColor }}>
                                 <div className="flex items-center gap-2">
                                     <div className="relative">
-                                        <img
-                                            src="https://images.unsplash.com/photo-1560250097-0b93528c311a?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=100&q=80"
-                                            alt="Agent"
-                                            className="w-6 h-6 rounded-full object-cover"
-                                        />
+                                        {creatorOverrides[String(property.id)]?.profileImage ? (
+                                            <img
+                                                src={creatorOverrides[String(property.id)]?.profileImage}
+                                                alt={creatorOverrides[String(property.id)]?.fullName || "Creator"}
+                                                className="w-6 h-6 rounded-full object-cover"
+                                            />
+                                        ) : (
+                                            <div className="w-6 h-6 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center text-[10px] font-bold">
+                                                {(creatorOverrides[String(property.id)]?.fullName || "A").slice(0, 1).toUpperCase()}
+                                            </div>
+                                        )}
                                     </div>
                                     <div>
-                                        <p className="text-[10px] uppercase font-bold tracking-wider opacity-60" style={{ color: currentTheme.textColor }}>Listing Agent</p>
+                                        <p className="text-[10px] uppercase font-bold tracking-wider opacity-60 line-clamp-1" style={{ color: currentTheme.textColor }}>
+                                            {creatorOverrides[String(property.id)]?.fullName || "N/A"}
+                                        </p>
+                                        <p className="text-[10px] opacity-70 line-clamp-1" style={{ color: currentTheme.textColor }}>
+                                            {creatorOverrides[String(property.id)]?.email || "No email"}
+                                        </p>
                                     </div>
                                 </div>
                                 <div className="relative">
@@ -834,7 +750,7 @@ export default function RentPropertiesPage() {
                                                     Review Property
                                                 </button>
                                                 <button
-                                                    onClick={() => router.push(`/properties/edit/${property.id}`)}
+                                                    onClick={() => router.push(`/properties/rent/edit/${property.id}`)}
                                                     className="w-full px-4 py-2.5 text-left text-sm font-semibold hover:bg-black/5 transition-colors flex items-center gap-2"
                                                     style={{ color: currentTheme.headingColor }}
                                                 >
@@ -843,9 +759,10 @@ export default function RentPropertiesPage() {
 
                                                 {activeTab === 'all' ? (
                                                     <button
+                                                        onClick={() => handleToggleRentalStatus(property)}
                                                         className="px-4 py-2.5 text-left text-sm font-semibold text-amber-600 hover:bg-amber-50 transition-colors flex items-center gap-2"
                                                     >
-                                                        Deactivate
+                                                        {property.status === "Inactive" ? "Activate" : "Deactivate"}
                                                     </button>
                                                 ) : (
                                                     <button
@@ -966,3 +883,4 @@ export default function RentPropertiesPage() {
         </div>
     );
 }
+
