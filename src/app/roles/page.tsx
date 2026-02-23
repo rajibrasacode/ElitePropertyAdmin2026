@@ -1,10 +1,11 @@
 "use client";
 import React, { useEffect, useState } from "react";
-import { MdAdd, MdArrowForward, MdSecurity, MdBusiness, MdHeadsetMic, MdMoreHoriz } from "react-icons/md";
+import { MdAdd, MdArrowForward, MdSecurity, MdBusiness, MdHeadsetMic, MdMoreHoriz, MdDelete } from "react-icons/md";
 import { useTheme } from "@/providers/ThemeProvider";
 import { useRouter } from "next/navigation";
-import { getAllRoles } from "@/services/rbac.service";
+import { getAllRoles, deleteRole } from "@/services/rbac.service";
 import { RbacRole } from "@/types/rbac.type";
+import { ConfirmModal } from "@/components/common/ConfirmModal";
 
 const ROLE_COLORS = ["bg-[#1E3A8A]", "bg-[#0F766E]", "bg-[#B45309]", "bg-[#6D28D9]", "bg-[#B91C1C]"];
 const ROLE_ICONS = [
@@ -25,6 +26,8 @@ export default function RolesPage() {
     const [expandedRole, setExpandedRole] = useState<number | null>(null);
     const [roles, setRoles] = useState<RbacRole[]>([]);
     const [loading, setLoading] = useState(true);
+    const [deleteId, setDeleteId] = useState<number | null>(null);
+    const [deleting, setDeleting] = useState(false);
 
     useEffect(() => {
         getAllRoles()
@@ -36,6 +39,23 @@ export default function RolesPage() {
     const toggleExpand = (id: number) => {
         setExpandedRole(expandedRole === id ? null : id);
     };
+
+    const handleDelete = async () => {
+        if (deleteId === null) return;
+        setDeleting(true);
+        try {
+            await deleteRole(deleteId);
+            setRoles((prev) => prev.filter((r) => r.id !== deleteId));
+            if (expandedRole === deleteId) setExpandedRole(null);
+        } catch (err) {
+            console.error("Failed to delete role", err);
+        } finally {
+            setDeleting(false);
+            setDeleteId(null);
+        }
+    };
+
+    const roleToDelete = roles.find((r) => r.id === deleteId);
 
     if (loading) {
         return (
@@ -90,12 +110,21 @@ export default function RolesPage() {
                                 </div>
                             </div>
 
-                            <div className="flex items-center gap-6">
+                            <div className="flex items-center gap-3">
                                 <div className="text-right hidden sm:block">
                                     <p className="text-xs font-bold uppercase tracking-wider" style={{ color: currentTheme.textColor, opacity: 0.7 }}>
                                         {role.user_count ?? role.users?.length ?? 0} Users
                                     </p>
                                 </div>
+
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); setDeleteId(role.id); }}
+                                    className="w-8 h-8 rounded-full flex items-center justify-center transition-all hover:bg-red-50 hover:text-red-500"
+                                    style={{ color: currentTheme.textColor }}
+                                    title="Delete role"
+                                >
+                                    <MdDelete size={18} />
+                                </button>
 
                                 <button
                                     className={`w-8 h-8 rounded-full flex items-center justify-center transition-all hover:opacity-80 ${expandedRole === role.id ? "rotate-90 text-white" : ""}`}
@@ -167,6 +196,16 @@ export default function RolesPage() {
                     </div>
                 ))}
             </div>
+
+            <ConfirmModal
+                isOpen={deleteId !== null}
+                onClose={() => setDeleteId(null)}
+                onConfirm={handleDelete}
+                title="Delete Role"
+                message={`Are you sure you want to delete "${roleToDelete ? formatRoleName(roleToDelete.name) : ""}"? This action cannot be undone.`}
+                confirmLabel="Delete"
+                isLoading={deleting}
+            />
         </div>
     );
 }
