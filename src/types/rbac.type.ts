@@ -26,20 +26,31 @@ export interface RbacOrganization {
   updated_at: string;
 }
 
+//  User attached to a role --
+export interface RbacUser {
+  id: number;
+  username: string;
+  first_name: string;
+  last_name: string;
+  email: string | null;
+}
+
 //  Role object returned by GET /rbac/roles --
 export interface RbacRole {
-  Id: number;
-  Name: string;
+  id: number;
+  name: string;
   role_title: string;
   permissions: RbacPermissionEntry[];
   organization: RbacOrganization | null;
+  users: RbacUser[];
+  user_count: number;
 }
 
 //  Payload for POST /rbac/roles -
 export interface CreateRolePayload {
-  Name: string;
-  role_title: string;
-  permissions: PermissionsMap;
+  role: string;
+  organization_id: number;
+  permission: PermissionsMap[];
 }
 
 //  Payload for PATCH /rbac/roles/{id} ---

@@ -15,7 +15,6 @@ import {
   MdCheckCircle,
   MdCopyright,
 } from "react-icons/md";
-import { RiGoogleFill, RiAppleFill } from "react-icons/ri";
 
 // Internal imports
 import { useTheme } from "@/providers/ThemeProvider";

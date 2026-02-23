@@ -438,12 +438,12 @@ export default function OrganizationDetailsPage() {
                     icon: MdLocalOffer,
                     count: plans.length,
                   },
-                  {
-                    id: "roles",
-                    label: "Roles",
-                    icon: MdSecurity,
-                    count: roles.length,
-                  },
+                  // {
+                  //   id: "roles",
+                  //   label: "Roles",
+                  //   icon: MdSecurity,
+                  //   count: roles.length,
+                  // },
                 ].map((item) => (
                   <button
                     key={item.id}
@@ -497,8 +497,8 @@ export default function OrganizationDetailsPage() {
                 />
               )}
 
-              {/* ROLES - Cards + Right Side Permissions */}
-              {activeTab === "roles" && (
+               {/* ROLES - Roles  Style */}
+              {/* {activeTab === "roles" && (
                 <RoleTab
                   roles={roles}
                   selectedRoleId={selectedRoleId}
@@ -511,7 +511,7 @@ export default function OrganizationDetailsPage() {
                   selectedRoleDisplayName={selectedRoleDisplayName}
                   selectedRoleDescription={selectedRoleDescription}
                 />
-              )}
+              )} */}
             </div>
           </div>
         </div>
