@@ -47,6 +47,8 @@ export const getMyPermissions = async (): Promise<MyPermissionsResponse> => {
   return (res.data as any).data ?? res.data;
 };
 
+
+
 export const MODULE_CONFIG: {
   key: ModuleKey;
   label: string;
@@ -59,9 +61,9 @@ export const MODULE_CONFIG: {
 export const ACTION_CONFIG: {
   key: ActionKey;
   label: string;
-}[] = [
+}[] = [ { key: "view", label: "View" },
   { key: "add", label: "Add" },
-  { key: "view", label: "View" },
+ 
   { key: "edit", label: "Edit" },
   { key: "delete", label: "Delete" },
 ];

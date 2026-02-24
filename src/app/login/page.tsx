@@ -64,7 +64,7 @@ export default function LoginPage() {
       const user = data?.data?.user;
 
       // Access Control Logic - Use centralized utility function
-      if (hasDashboardAccess(user)) {
+      // if (hasDashboardAccess(user)) {
         console.log("Login success:", data);
         showSuccessToast(data.message || "Login successful!");
 
@@ -75,20 +75,21 @@ export default function LoginPage() {
         setTimeout(() => {
           router.replace("/dashboard");
         }, 1000);
-      } else {
-        console.warn("Access Denied: User is not authorized", user);
-        showErrorToast(
-          "Access Denied: Only Super Admin or authorized users can login.",
-        );
+      // } 
+      // else {
+      //   console.warn("Access Denied: User is not authorized", user);
+      //   showErrorToast(
+      //     "Access Denied: Only Super Admin or authorized users can login.",
+      //   );
 
-        // Clear any stored session data immediately
-        if (typeof window !== "undefined") {
-          localStorage.removeItem("accessToken");
-          localStorage.removeItem("refreshToken");
-          localStorage.removeItem("user");
-          localStorage.removeItem("subscription");
-        }
-      }
+      //   // Clear any stored session data immediately
+      //   if (typeof window !== "undefined") {
+      //     localStorage.removeItem("accessToken");
+      //     localStorage.removeItem("refreshToken");
+      //     localStorage.removeItem("user");
+      //     localStorage.removeItem("subscription");
+      //   }
+      // }
     },
     onError: (error: any) => {
       console.error("Login error:", error);

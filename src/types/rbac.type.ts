@@ -37,7 +37,7 @@ export interface RbacUser {
 
 //  Role object returned by GET /rbac/roles --
 export interface RbacRole {
-  id: number;
+  Id: number;
   name: string;
   role_title: string;
   permissions: RbacPermissionEntry[];

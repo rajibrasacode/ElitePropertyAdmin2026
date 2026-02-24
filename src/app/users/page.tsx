@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
   MdSearch,
   MdFilterList,
@@ -10,9 +11,14 @@ import {
   MdOutlinePhone,
   MdChevronLeft,
   MdChevronRight,
+  MdPersonAdd,
+  MdDeleteOutline,
 } from "react-icons/md";
 import { useTheme } from "@/providers/ThemeProvider";
-import { getAllUsersService, deleteUserService } from "@/services/user.service";
+import { useAuth } from "@/providers/AuthProvider";
+import { getAllUsersService, deleteUserService, getMyUsers } from "@/services/user.service";
+import { ConfirmModal } from "@/components/common/ConfirmModal";
+import { isEnterpriseAdmin } from "@/utils/authUtils";
 import {
   getPlanRole,
   getUserStatus,
@@ -25,12 +31,17 @@ const LIMIT = 10;
 
 export default function UsersPage() {
   const { currentTheme } = useTheme();
+  const { user: authUser } = useAuth();
+  const router = useRouter();
+  const [mounted, setMounted] = useState(false);
   const [users, setUsers] = useState<UserData[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<UserData[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 
   // Derived pagination values — no state needed
   const totalPages = Math.ceil(filteredUsers.length / LIMIT);
@@ -40,6 +51,7 @@ export default function UsersPage() {
   const currentEnd = Math.min(currentPage * LIMIT, filteredUsers.length);
 
   useEffect(() => {
+    setMounted(true);
     fetchUsers();
   }, []);
 
@@ -65,7 +77,15 @@ export default function UsersPage() {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const data = await getAllUsersService();
+      let data: UserData[];
+
+      if (isEnterpriseAdmin(authUser)) {
+        const res = await getMyUsers();
+        data = Array.isArray(res) ? res : (res?.data ?? []);
+      } else {
+        data = await getAllUsersService();
+      }
+
       setUsers(data);
       setFilteredUsers(data);
     } catch (error) {
@@ -76,19 +96,26 @@ export default function UsersPage() {
     }
   };
 
-  const handleDeleteUser = async (userId: string | number) => {
-    if (!confirm("Are you sure you want to delete this user?")) return;
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handler = () => setMenuOpenId(null);
+    document.addEventListener("click", handler);
+    return () => document.removeEventListener("click", handler);
+  }, []);
 
+  const handleDeleteUser = async () => {
+    if (!deleteTargetId) return;
     try {
-      setActionLoading(userId.toString());
-      await deleteUserService(userId.toString());
-      setUsers((prev) => prev.filter((user) => user.id !== userId));
+      setActionLoading(deleteTargetId);
+      await deleteUserService(deleteTargetId);
+      setUsers((prev) => prev.filter((u) => u.id?.toString() !== deleteTargetId));
       toast.success("User deleted successfully");
     } catch (error) {
       console.error("Failed to delete user:", error);
       toast.error("Failed to delete user");
     } finally {
       setActionLoading(null);
+      setDeleteTargetId(null);
     }
   };
 
@@ -119,7 +146,7 @@ export default function UsersPage() {
     }
   };
 
-  if (loading) {
+  if (!mounted || loading) {
     return (
       <div className="max-w-[1600px] mx-auto flex items-center justify-center min-h-[400px]">
         <div className="text-center">
@@ -182,6 +209,14 @@ export default function UsersPage() {
             <MdFilterList size={18} />
             Refresh
           </button>
+          <button
+            onClick={() => router.push("/users/add")}
+            className="px-4 py-2.5 rounded-lg text-white font-bold text-sm flex items-center gap-2 transition-all hover:brightness-110 shadow-sm"
+            style={{ backgroundColor: currentTheme.primary }}
+          >
+            <MdPersonAdd size={18} />
+            Add User
+          </button>
         </div>
       </div>
 
@@ -214,6 +249,7 @@ export default function UsersPage() {
               >
                 Plan
               </th>
+              
               <th
                 className="px-6 py-4 text-xs font-bold uppercase"
                 style={{ color: currentTheme.textColor }}
@@ -224,8 +260,14 @@ export default function UsersPage() {
                 className="px-6 py-4 text-xs font-bold uppercase"
                 style={{ color: currentTheme.textColor }}
               >
-                Status
+                Role
               </th>
+              {/* <th
+                className="px-6 py-4 text-xs font-bold uppercase"
+                style={{ color: currentTheme.textColor }}
+              >
+                Status
+              </th> */}
               <th
                 className="px-6 py-4 text-xs font-bold uppercase"
                 style={{ color: currentTheme.textColor }}
@@ -239,7 +281,7 @@ export default function UsersPage() {
             {filteredUsers.length === 0 ? (
               <tr>
                 <td
-                  colSpan={6}
+                  colSpan={7}
                   className="px-6 py-12 text-center"
                   style={{ color: currentTheme.textColor }}
                 >
@@ -254,6 +296,16 @@ export default function UsersPage() {
                 const fullName = `${user.first_name} ${user.last_name}`;
                 const isActionPending = actionLoading === user.id?.toString();
                 const planType = user.subscription?.plan?.plan_type;
+                const roleDisplay = (() => {
+                  const roles = user.roles;
+                  if (!roles || roles.length === 0) return null;
+                  const r = roles[0];
+                  const name = typeof r === "string" ? r : r?.Name ?? r?.name ?? "";
+                  return name
+                    .split("_")
+                    .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1))
+                    .join(" ");
+                })();
 
                 return (
                   <tr
@@ -319,8 +371,28 @@ export default function UsersPage() {
                       </div>
                     </td>
 
-                    {/* Status */}
+                    {/* Role */}
                     <td className="px-6 py-4">
+                      {roleDisplay ? (
+                        <span
+                          className="px-2.5 py-1 rounded-md text-xs font-bold border"
+                          style={{
+                            backgroundColor: currentTheme.background,
+                            borderColor: currentTheme.borderColor,
+                            color: currentTheme.headingColor,
+                          }}
+                        >
+                          {roleDisplay}
+                        </span>
+                      ) : (
+                        <span className="text-xs" style={{ color: currentTheme.textColor }}>
+                          —
+                        </span>
+                      )}
+                    </td>
+
+                    {/* Status */}
+                    {/* <td className="px-6 py-4">
                       {status === "Active" ? (
                         <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-600">
                           <MdCheckCircle size={16} /> Active
@@ -333,7 +405,7 @@ export default function UsersPage() {
                           <MdBlock size={16} /> Inactive
                         </div>
                       )}
-                    </td>
+                    </td> */}
 
                     {/* Subscription dates */}
                     <td className="px-6 py-4">
@@ -368,13 +440,43 @@ export default function UsersPage() {
                     <td className="px-6 py-4 text-right">
                       <div className="relative inline-block">
                         <button
-                          onClick={() => handleDeleteUser(user.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setMenuOpenId(
+                              menuOpenId === user.id?.toString()
+                                ? null
+                                : user.id?.toString() ?? null,
+                            );
+                          }}
                           disabled={isActionPending}
                           className="p-2 rounded-full transition-all hover:bg-gray-500/10 disabled:opacity-50 disabled:cursor-not-allowed"
                           style={{ color: currentTheme.textColor }}
                         >
                           <MdMoreHoriz size={20} />
                         </button>
+
+                        {/* Dropdown */}
+                        {menuOpenId === user.id?.toString() && (
+                          <div
+                            className="absolute right-0 mt-1 w-40 rounded-lg border shadow-lg z-20 overflow-hidden"
+                            style={{
+                              backgroundColor: currentTheme.cardBg,
+                              borderColor: currentTheme.borderColor,
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <button
+                              onClick={() => {
+                                setDeleteTargetId(user.id?.toString() ?? null);
+                                setMenuOpenId(null);
+                              }}
+                              className="w-full flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-red-500 hover:bg-red-50/10 transition-colors"
+                            >
+                              <MdDeleteOutline size={16} />
+                              Delete User
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -467,6 +569,17 @@ export default function UsersPage() {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={!!deleteTargetId}
+        onClose={() => setDeleteTargetId(null)}
+        onConfirm={handleDeleteUser}
+        title="Delete User"
+        message="Are you sure you want to delete this user? This action cannot be undone."
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        isLoading={!!actionLoading}
+      />
     </div>
   );
 }

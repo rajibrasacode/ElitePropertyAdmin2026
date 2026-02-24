@@ -58,7 +58,7 @@ export default function PermissionsPage() {
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
 
   // ---- derived — uses PascalCase Name from API -------------
-  const isSuperAdmin = selectedRole?.Name?.toLowerCase() === "super_admin";
+  const isSuperAdmin = selectedRole?.name?.toLowerCase() === "super_admin";
 
   // ---- load all roles on mount ----------------------------
   useEffect(() => {
@@ -97,7 +97,7 @@ export default function PermissionsPage() {
       setSaveMsg(null);
       try {
         // Optimistically render from cache first
-        const cached = roles.find((r) => r.Id === id);
+        const cached = roles.find((r) => r.id === id);
         if (cached) {
           const matrix = mapPermissionsToMatrix(cached.permissions);
           setSelectedRole(cached);
@@ -113,7 +113,7 @@ export default function PermissionsPage() {
         setOriginalMatrix(matrix);
 
         // Update cache entry
-        setRoles((prev) => prev.map((r) => (r.Id === id ? fresh : r)));
+        setRoles((prev) => prev.map((r) => (r.id === id ? fresh : r)));
       } catch (err: any) {
         setError(
           err?.response?.data?.message ??
@@ -144,6 +144,8 @@ export default function PermissionsPage() {
 
   // ---- save via PATCH /rbac/roles/{id} --------------------
   const handleSave = async () => {
+    console.log(selectedRole);
+    
     if (!selectedRole || isSuperAdmin) return;
     setSaving(true);
     setSaveMsg(null);
@@ -157,7 +159,7 @@ export default function PermissionsPage() {
       const matrix = mapPermissionsToMatrix(updated.permissions);
       setPermissions(matrix);
       setOriginalMatrix(matrix);
-      setRoles((prev) => prev.map((r) => (r.Id === updated.Id ? updated : r)));
+      setRoles((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
       setTimeout(() => {
         showSuccessToast("Permissions saved successfully.");
       }, 1000);
@@ -287,11 +289,11 @@ export default function PermissionsPage() {
                     borderColor: currentTheme.borderColor,
                     color: currentTheme.headingColor,
                   }}
-                  value={selectedRole?.Id ?? ""}
+                  value={selectedRole?.id ?? ""}
                   onChange={(e) => handleRoleChange(e.target.value)}
                 >
                   {roles.map((role) => (
-                    <option key={String(role.Id)} value={String(role.Id)}>
+                    <option key={String(role.id)} value={String(role.id)}>
                       {role.role_title}
                     </option>
                   ))}

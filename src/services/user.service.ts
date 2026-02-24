@@ -155,3 +155,28 @@ export const deleteUserService = async (id: string): Promise<UserResponse> => {
 //     throw error;
 //   }
 // };
+
+export const createUserService = async (userData: {
+  username: string;
+  password: string;
+  first_name: string;
+  last_name: string;
+  phone_number: string;
+  role: string;
+}) => {
+    try {
+        const response = await privetApi.post("/users", userData);
+        return response.data;
+    } catch (error: any) {
+        throw error.response?.data || error;
+    }
+};
+
+export const getMyUsers = async (params?: any) => {
+    try {
+        const response = await privetApi.get("/users/my-users", { params });
+        return response.data;
+    } catch (error: any) {
+        throw error.response?.data || error;
+    }
+};

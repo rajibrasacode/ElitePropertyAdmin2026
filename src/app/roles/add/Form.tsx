@@ -71,8 +71,9 @@ export default function AddRoleForm() {
 
         setSubmitting(true);
         setError(null);
-
-        const payload = {
+         let payload;
+if (organizationId) {
+      payload = {
             role: role.trim(),
             organization_id: organizationId,
             permission: [
@@ -83,6 +84,19 @@ export default function AddRoleForm() {
                 },
             ],
         };
+}else{
+      payload = {
+            role: role.trim(), 
+            permission: [
+                {
+                    campaign: permissions.campaign,
+                    properties: permissions.properties,
+                    user_management: permissions.user_management,
+                },
+            ],
+        };
+}
+      
 
         try {
            const response= await createRole(payload);

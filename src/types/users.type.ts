@@ -29,6 +29,7 @@ export interface UserData {
   phone_number: string;
   organization: Organization | null;
   subscription: Subscription | null;
+  roles?: any[];
   // Extra optional fields used elsewhere in the app
   permissions?: any;
   profile_image?: string | File;
