@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   MdSearch,
@@ -26,6 +26,7 @@ import {
   UserData,
 } from "@/types/users.type";
 import { toast } from "react-hot-toast";
+import { useModulePermission } from "@/hooks/useModulePermission";
 
 const LIMIT = 10;
 
@@ -42,6 +43,10 @@ export default function UsersPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+  const { permissionReady, can } = useModulePermission("user_management");
+  const canViewUsers = can("view");
+  const canAddUsers = can("add");
+  const canDeleteUsers = can("delete");
 
   // Derived pagination values — no state needed
   const totalPages = Math.ceil(filteredUsers.length / LIMIT);
@@ -52,7 +57,6 @@ export default function UsersPage() {
 
   useEffect(() => {
     setMounted(true);
-    fetchUsers();
   }, []);
 
   // Reset to page 1 on search
@@ -74,7 +78,7 @@ export default function UsersPage() {
     }
   }, [searchQuery, users]);
 
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     try {
       setLoading(true);
       let data: UserData[];
@@ -94,7 +98,18 @@ export default function UsersPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [authUser]);
+
+  useEffect(() => {
+    if (!mounted || !permissionReady) return;
+    if (!canViewUsers) {
+      setUsers([]);
+      setFilteredUsers([]);
+      setLoading(false);
+      return;
+    }
+    fetchUsers();
+  }, [mounted, permissionReady, canViewUsers, fetchUsers]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -104,7 +119,7 @@ export default function UsersPage() {
   }, []);
 
   const handleDeleteUser = async () => {
-    if (!deleteTargetId) return;
+    if (!deleteTargetId || !canDeleteUsers) return;
     try {
       setActionLoading(deleteTargetId);
       await deleteUserService(deleteTargetId);
@@ -146,12 +161,22 @@ export default function UsersPage() {
     }
   };
 
-  if (!mounted || loading) {
+  if (!mounted || loading || !permissionReady) {
     return (
       <div className="max-w-[1600px] mx-auto flex items-center justify-center min-h-[400px]">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
           <p style={{ color: currentTheme.textColor }}>Loading users...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!canViewUsers) {
+    return (
+      <div className="max-w-[1600px] mx-auto py-10">
+        <div className="rounded-xl border px-5 py-4 text-sm font-medium" style={{ borderColor: currentTheme.borderColor, color: currentTheme.textColor }}>
+          You do not have `view` permission for Users.
         </div>
       </div>
     );
@@ -209,14 +234,16 @@ export default function UsersPage() {
             <MdFilterList size={18} />
             Refresh
           </button>
-          <button
-            onClick={() => router.push("/users/add")}
-            className="px-4 py-2.5 rounded-lg text-white font-bold text-sm flex items-center gap-2 transition-all hover:brightness-110 shadow-sm"
-            style={{ backgroundColor: currentTheme.primary }}
-          >
-            <MdPersonAdd size={18} />
-            Add User
-          </button>
+          {canAddUsers && (
+            <button
+              onClick={() => router.push("/users/add")}
+              className="px-4 py-2.5 rounded-lg text-white font-bold text-sm flex items-center gap-2 transition-all hover:brightness-110 shadow-sm"
+              style={{ backgroundColor: currentTheme.primary }}
+            >
+              <MdPersonAdd size={18} />
+              Add User
+            </button>
+          )}
         </div>
       </div>
 
@@ -439,21 +466,23 @@ export default function UsersPage() {
                     {/* Action */}
                     <td className="px-6 py-4 text-right">
                       <div className="relative inline-block">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setMenuOpenId(
-                              menuOpenId === user.id?.toString()
-                                ? null
-                                : user.id?.toString() ?? null,
-                            );
-                          }}
-                          disabled={isActionPending}
-                          className="p-2 rounded-full transition-all hover:bg-gray-500/10 disabled:opacity-50 disabled:cursor-not-allowed"
-                          style={{ color: currentTheme.textColor }}
-                        >
-                          <MdMoreHoriz size={20} />
-                        </button>
+                        {canDeleteUsers && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setMenuOpenId(
+                                menuOpenId === user.id?.toString()
+                                  ? null
+                                  : user.id?.toString() ?? null,
+                              );
+                            }}
+                            disabled={isActionPending}
+                            className="p-2 rounded-full transition-all hover:bg-gray-500/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                            style={{ color: currentTheme.textColor }}
+                          >
+                            <MdMoreHoriz size={20} />
+                          </button>
+                        )}
 
                         {/* Dropdown */}
                         {menuOpenId === user.id?.toString() && (
@@ -465,16 +494,18 @@ export default function UsersPage() {
                             }}
                             onClick={(e) => e.stopPropagation()}
                           >
-                            <button
-                              onClick={() => {
-                                setDeleteTargetId(user.id?.toString() ?? null);
-                                setMenuOpenId(null);
-                              }}
-                              className="w-full flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-red-500 hover:bg-red-50/10 transition-colors"
-                            >
-                              <MdDeleteOutline size={16} />
-                              Delete User
-                            </button>
+                            {canDeleteUsers && (
+                              <button
+                                onClick={() => {
+                                  setDeleteTargetId(user.id?.toString() ?? null);
+                                  setMenuOpenId(null);
+                                }}
+                                className="w-full flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-red-500 hover:bg-red-50/10 transition-colors"
+                              >
+                                <MdDeleteOutline size={16} />
+                                Delete User
+                              </button>
+                            )}
                           </div>
                         )}
                       </div>
@@ -571,7 +602,7 @@ export default function UsersPage() {
       )}
 
       <ConfirmModal
-        isOpen={!!deleteTargetId}
+        isOpen={canDeleteUsers && !!deleteTargetId}
         onClose={() => setDeleteTargetId(null)}
         onConfirm={handleDeleteUser}
         title="Delete User"

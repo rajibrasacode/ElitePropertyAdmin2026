@@ -10,21 +10,103 @@ import type {
   ActionKey,
 } from "@/types/rbac.type";
 
+type RawPermissions = PermissionsMap | { permissions?: PermissionsMap } | null | undefined;
+
+const toRoleArray = (payload: unknown): unknown[] => {
+  if (Array.isArray(payload)) return payload;
+  if (
+    payload &&
+    typeof payload === "object" &&
+    Array.isArray((payload as { data?: unknown[] }).data)
+  ) {
+    return (payload as { data: unknown[] }).data;
+  }
+  return [];
+};
+
+const normalizePermissionsMap = (raw: unknown): PermissionsMap => {
+  if (!raw || typeof raw !== "object") return {};
+  const source = raw as Record<string, unknown>;
+  return MODULE_KEYS.reduce((acc, mod) => {
+    const modulePerms = source[mod];
+    if (!modulePerms || typeof modulePerms !== "object") return acc;
+    const moduleRecord = modulePerms as Record<string, unknown>;
+    acc[mod] = ACTION_KEYS.reduce((actionAcc, act) => {
+      actionAcc[act] = Boolean(moduleRecord[act]);
+      return actionAcc;
+    }, {} as Record<ActionKey, boolean>);
+    return acc;
+  }, {} as PermissionsMap);
+};
+
+const extractPermissionsMap = (entries: RawPermissions[] | unknown): PermissionsMap => {
+  if (Array.isArray(entries)) {
+    if (entries.length === 0) return {};
+    const first = entries[0] as RawPermissions;
+    if (!first || typeof first !== "object") return {};
+    const inner = (first as { permissions?: unknown }).permissions;
+    if (inner && typeof inner === "object") {
+      return normalizePermissionsMap(inner);
+    }
+    return normalizePermissionsMap(first);
+  }
+
+  if (entries && typeof entries === "object") {
+    const inner = (entries as { permissions?: unknown }).permissions;
+    if (inner && typeof inner === "object") {
+      return normalizePermissionsMap(inner);
+    }
+    return normalizePermissionsMap(entries);
+  }
+
+  return {};
+};
+
+const normalizeRole = (raw: unknown): RbacRole => {
+  const input = (raw ?? {}) as Record<string, unknown>;
+  const id = Number(input.id ?? input.Id ?? 0);
+  const roleName = String(input.role ?? input.name ?? input.Name ?? "");
+  const roleTitle = String(input.role_title ?? "");
+  const permissionsMap = extractPermissionsMap(input.permissions);
+
+  return {
+    ...(input as RbacRole),
+    id,
+    Id: id,
+    role: roleName,
+    name: roleName,
+    role_title: roleTitle,
+    permissions: [{ id: 0, permissions: permissionsMap }],
+    organization: (input.organization as RbacRole["organization"]) ?? null,
+    users: Array.isArray(input.users) ? (input.users as RbacRole["users"]) : [],
+    user_count: Number(input.user_count ?? (Array.isArray(input.users) ? input.users.length : 0)),
+  };
+};
+
 export const getAllRoles = async (): Promise<RbacRole[]> => {
   const res = await privetApi.get<RbacRole[]>(`/rbac/roles`);
-  return Array.isArray(res.data) ? res.data : (res.data as any).data;
+  return toRoleArray(res.data).map((item) => normalizeRole(item));
 };
 
 export const getRoleById = async (id: number): Promise<RbacRole> => {
   const res = await privetApi.get<RbacRole>(`/rbac/roles/${id}`);
-  return (res.data as any).data ?? res.data;
+  const payload =
+    res.data && typeof res.data === "object" && "data" in (res.data as object)
+      ? (res.data as { data?: unknown }).data ?? res.data
+      : res.data;
+  return normalizeRole(payload);
 };
 
 export const createRole = async (
   payload: CreateRolePayload,
 ): Promise<RbacRole> => {
   const res = await privetApi.post<RbacRole>(`/rbac/roles`, payload);
-  return (res.data as any).data ?? res.data;
+  const body = res.data as unknown;
+  const rolePayload =
+    body && typeof body === "object" && "data" in (body as object)
+      ? (body as { data?: unknown }).data ?? body
+      : body;
+  return normalizeRole(rolePayload);
 };
 
 export const updateRolePermissions = async (
@@ -34,7 +116,12 @@ export const updateRolePermissions = async (
   const permissions = payload.permissions ?? payload.permission?.[0] ?? {};
   const requestBody = { permission: [permissions] };
   const res = await privetApi.patch<RbacRole>(`/rbac/roles/${id}`, requestBody);
-  return (res.data as any).data ?? res.data;
+  const body = res.data as unknown;
+  const rolePayload =
+    body && typeof body === "object" && "data" in (body as object)
+      ? (body as { data?: unknown }).data ?? body
+      : body;
+  return normalizeRole(rolePayload);
 };
 
 export const deleteRole = async (id: number): Promise<void> => {
@@ -44,7 +131,23 @@ export const deleteRole = async (id: number): Promise<void> => {
 export const getMyPermissions = async (): Promise<MyPermissionsResponse> => {
   const res =
     await privetApi.get<MyPermissionsResponse>(`/rbac/my-permissions`);
-  return (res.data as any).data ?? res.data;
+  const body = res.data as unknown;
+  const payload =
+    body && typeof body === "object" && "data" in (body as object)
+      ? (body as { data?: unknown }).data ?? body
+      : body;
+  const entry = Array.isArray(payload) ? payload[0] : payload;
+  const map = extractPermissionsMap((entry as { permissions?: unknown })?.permissions);
+  return {
+    ...(entry as MyPermissionsResponse),
+    role: String(
+      (entry as { role?: unknown; name?: unknown; Name?: unknown })?.role ??
+        (entry as { role?: unknown; name?: unknown; Name?: unknown })?.name ??
+        (entry as { role?: unknown; name?: unknown; Name?: unknown })?.Name ??
+        "",
+    ),
+    permissions: map,
+  };
 };
 
 
@@ -93,7 +196,7 @@ export function mapPermissionsToMatrix(
     return acc;
   }, {} as PermissionsMatrix);
 
-  const permMap = permissionEntries?.[0]?.permissions ?? {};
+  const permMap = extractPermissionsMap(permissionEntries);
 
   (Object.keys(permMap) as string[]).forEach((rawKey) => {
     const mod = API_KEY_NORMALISE[rawKey];

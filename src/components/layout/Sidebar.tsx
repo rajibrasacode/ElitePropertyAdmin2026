@@ -172,7 +172,7 @@ const UserFooter = ({
   const formatRole = (roles?: any[]) => {
     if (!mounted || !roles || roles.length === 0) return "";
     const r    = roles[0];
-    const name = typeof r === "string" ? r : r?.Name ?? r?.name ?? "";
+    const name = typeof r === "string" ? r : r?.Name ?? r?.name ?? r?.role ?? "";
     return name
       .split("_")
       .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1))
@@ -251,11 +251,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   useEffect(() => {
     if (mounted && user && isEnterpriseAdmin(user)) {
       getMyPermissions()
-        .then((res: any) => {
-          const entry   = Array.isArray(res) ? res[0] : res;
-          const permsArr = entry?.permissions;
-          const flat: PermissionsMap = Array.isArray(permsArr) ? permsArr[0] : permsArr;
-          setMyPermissions(flat ?? null);
+        .then((res) => {
+          setMyPermissions(res.permissions ?? null);
         })
         .catch(console.error);
     }

@@ -10,6 +10,7 @@ import { showSuccessToast, showErrorToast } from "@/utils/toast";
 
 import { getRentals, activateRentalService, cancelRentalService, deactivateRentalService, deleteRentalService, getRentalByIdService } from "@/services/rentals.service";
 import { getRentalImageCandidates, mapRentalToPropertyData } from "@/utils/rentalMapper";
+import { useModulePermission } from "@/hooks/useModulePermission";
 
 const getErrorMessage = (error: unknown, fallback: string) => {
     if (typeof error === "string") return error;
@@ -29,6 +30,11 @@ type CreatorPreview = {
 export default function RentPropertiesPage() {
     const { currentTheme } = useTheme();
     const router = useRouter();
+    const { permissionReady, can } = useModulePermission("properties");
+    const canViewProperties = can("view");
+    const canAddProperties = can("add");
+    const canEditProperties = can("edit");
+    const canDeleteProperties = can("delete");
 
     const [allProperties, setAllProperties] = useState<PropertyData[]>([]);
     const [properties, setProperties] = useState<PropertyData[]>([]);
@@ -74,6 +80,7 @@ export default function RentPropertiesPage() {
 
     // Open Modal Handlers
     const onApproveClick = (id: number | string) => {
+        if (!canEditProperties) return;
         setPendingPropertyId(id);
         setPendingAction('approve');
         setIsActionModalOpen(true);
@@ -81,6 +88,7 @@ export default function RentPropertiesPage() {
     };
 
     const onRejectClick = (id: number | string) => {
+        if (!canEditProperties) return;
         setPendingPropertyId(id);
         setPendingAction('reject');
         setIsActionModalOpen(true);
@@ -89,7 +97,7 @@ export default function RentPropertiesPage() {
 
     // Confirm Action Helper
     const handleConfirmAction = async () => {
-        if (!pendingPropertyId || !pendingAction) return;
+        if (!pendingPropertyId || !pendingAction || !canEditProperties) return;
 
         setActionLoading(true);
         try {
@@ -112,6 +120,14 @@ export default function RentPropertiesPage() {
     };
 
     useEffect(() => {
+        if (!permissionReady) return;
+        if (!canViewProperties) {
+            setAllProperties([]);
+            setProperties([]);
+            setLoading(false);
+            return;
+        }
+
         const fetchProperties = async () => {
             setLoading(true);
             try {
@@ -168,7 +184,7 @@ export default function RentPropertiesPage() {
         };
 
         fetchProperties();
-    }, [activeTab, refreshKey]);
+    }, [activeTab, refreshKey, permissionReady, canViewProperties]);
 
     useEffect(() => {
         try {
@@ -287,12 +303,13 @@ export default function RentPropertiesPage() {
     }, [properties, imageOverrides, creatorOverrides]);
 
     const initiateDelete = (id: number | string) => {
+        if (!canDeleteProperties) return;
         setDeleteId(id);
         setActiveMenuId(null);
     };
 
     const confirmDelete = () => {
-        if (!deleteId) return;
+        if (!deleteId || !canDeleteProperties) return;
         setIsDeleteLoading(true);
 
         deleteRentalService(deleteId)
@@ -315,6 +332,7 @@ export default function RentPropertiesPage() {
     };
 
     const handleToggleRentalStatus = async (property: PropertyData) => {
+        if (!canEditProperties) return;
         try {
             if (property.status === "Inactive") {
                 await activateRentalService(property.id);
@@ -369,10 +387,20 @@ export default function RentPropertiesPage() {
         }
     };
 
+    if (!loading && permissionReady && !canViewProperties) {
+        return (
+            <div className="max-w-[1600px] mx-auto py-10">
+                <div className="rounded-xl border px-5 py-4 text-sm font-medium" style={{ borderColor: currentTheme.borderColor, color: currentTheme.textColor }}>
+                    You do not have `view` permission for Properties.
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="max-w-[1600px] mx-auto space-y-6 pb-20">
             <ConfirmModal
-                isOpen={!!deleteId}
+                isOpen={canDeleteProperties && !!deleteId}
                 onClose={() => !isDeleteLoading && setDeleteId(null)}
                 onConfirm={confirmDelete}
                 title="Delete Rent"
@@ -441,15 +469,17 @@ export default function RentPropertiesPage() {
                             <MdFilterList size={18} />
                             Filter
                         </button>
-                        <Link href="/properties/rent/add" className="flex-1 sm:flex-none">
-                            <button
-                                className="w-full px-5 py-2.5 text-white rounded-lg shadow-sm hover:brightness-110 transition-all font-bold text-sm flex items-center justify-center gap-2 whitespace-nowrap"
-                                style={{ backgroundColor: currentTheme.primary }}
-                            >
-                                <MdAdd size={20} />
-                                Add Rent
-                            </button>
-                        </Link>
+                        {canAddProperties && (
+                            <Link href="/properties/rent/add" className="flex-1 sm:flex-none">
+                                <button
+                                    className="w-full px-5 py-2.5 text-white rounded-lg shadow-sm hover:brightness-110 transition-all font-bold text-sm flex items-center justify-center gap-2 whitespace-nowrap"
+                                    style={{ backgroundColor: currentTheme.primary }}
+                                >
+                                    <MdAdd size={20} />
+                                    Add Rent
+                                </button>
+                            </Link>
+                        )}
                     </div>
                 </div>
             </div>
@@ -720,16 +750,18 @@ export default function RentPropertiesPage() {
                                     </div>
                                 </div>
                                 <div className="relative">
-                                    <button
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            setActiveMenuId(activeMenuId === property.id ? null : property.id);
-                                        }}
-                                        className="hover:opacity-80 p-1 rounded-full hover:bg-black/5 transition-colors"
-                                        style={{ color: currentTheme.textColor }}
-                                    >
-                                        <MdMoreHoriz size={20} />
-                                    </button>
+                                    {(canViewProperties || canEditProperties || canDeleteProperties) && (
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setActiveMenuId(activeMenuId === property.id ? null : property.id);
+                                            }}
+                                            className="hover:opacity-80 p-1 rounded-full hover:bg-black/5 transition-colors"
+                                            style={{ color: currentTheme.textColor }}
+                                        >
+                                            <MdMoreHoriz size={20} />
+                                        </button>
+                                    )}
 
                                     {/* Dropdown Menu */}
                                     {activeMenuId === property.id && (
@@ -742,53 +774,65 @@ export default function RentPropertiesPage() {
                                             onClick={(e) => e.stopPropagation()}
                                         >
                                             <div className="flex flex-col py-1">
-                                                <button
-                                                    onClick={() => router.push(`/properties/rent/review/${property.id}`)}
-                                                    className="w-full px-4 py-2.5 text-left text-sm font-semibold hover:bg-black/5 transition-colors flex items-center gap-2"
-                                                    style={{ color: currentTheme.headingColor }}
-                                                >
-                                                    Review Property
-                                                </button>
-                                                <button
-                                                    onClick={() => router.push(`/properties/rent/edit/${property.id}`)}
-                                                    className="w-full px-4 py-2.5 text-left text-sm font-semibold hover:bg-black/5 transition-colors flex items-center gap-2"
-                                                    style={{ color: currentTheme.headingColor }}
-                                                >
-                                                    Edit Property
-                                                </button>
-
-                                                {activeTab === 'all' ? (
+                                                {canViewProperties && (
                                                     <button
-                                                        onClick={() => handleToggleRentalStatus(property)}
-                                                        className="px-4 py-2.5 text-left text-sm font-semibold text-amber-600 hover:bg-amber-50 transition-colors flex items-center gap-2"
+                                                        onClick={() => router.push(`/properties/rent/review/${property.id}`)}
+                                                        className="w-full px-4 py-2.5 text-left text-sm font-semibold hover:bg-black/5 transition-colors flex items-center gap-2"
+                                                        style={{ color: currentTheme.headingColor }}
                                                     >
-                                                        {property.status === "Inactive" ? "Activate" : "Deactivate"}
+                                                        Review Property
                                                     </button>
-                                                ) : (
+                                                )}
+                                                {canEditProperties && (
                                                     <button
-                                                        onClick={(e) => { e.stopPropagation(); onApproveClick(property.id); }}
-                                                        className="px-4 py-2.5 text-left text-sm font-semibold text-emerald-600 hover:bg-emerald-50 transition-colors flex items-center gap-2"
+                                                        onClick={() => router.push(`/properties/rent/edit/${property.id}`)}
+                                                        className="w-full px-4 py-2.5 text-left text-sm font-semibold hover:bg-black/5 transition-colors flex items-center gap-2"
+                                                        style={{ color: currentTheme.headingColor }}
                                                     >
-                                                        Approve
+                                                        Edit Property
                                                     </button>
                                                 )}
 
-                                                <div className="h-px bg-black/5 my-1" style={{ backgroundColor: currentTheme.borderColor }}></div>
+                                                {canEditProperties && (
+                                                    activeTab === 'all' ? (
+                                                        <button
+                                                            onClick={() => handleToggleRentalStatus(property)}
+                                                            className="px-4 py-2.5 text-left text-sm font-semibold text-amber-600 hover:bg-amber-50 transition-colors flex items-center gap-2"
+                                                        >
+                                                            {property.status === "Inactive" ? "Activate" : "Deactivate"}
+                                                        </button>
+                                                    ) : (
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); onApproveClick(property.id); }}
+                                                            className="px-4 py-2.5 text-left text-sm font-semibold text-emerald-600 hover:bg-emerald-50 transition-colors flex items-center gap-2"
+                                                        >
+                                                            Approve
+                                                        </button>
+                                                    )
+                                                )}
+
+                                                {(canDeleteProperties || (canEditProperties && activeTab !== 'all')) && (
+                                                    <div className="h-px bg-black/5 my-1" style={{ backgroundColor: currentTheme.borderColor }}></div>
+                                                )}
 
                                                 {activeTab === 'all' ? (
-                                                    <button
-                                                        onClick={() => initiateDelete(property.id)}
-                                                        className="px-4 py-2.5 text-left text-sm font-semibold text-rose-500 hover:bg-rose-50 transition-colors flex items-center gap-2"
-                                                    >
-                                                        Delete Property
-                                                    </button>
+                                                    canDeleteProperties && (
+                                                        <button
+                                                            onClick={() => initiateDelete(property.id)}
+                                                            className="px-4 py-2.5 text-left text-sm font-semibold text-rose-500 hover:bg-rose-50 transition-colors flex items-center gap-2"
+                                                        >
+                                                            Delete Property
+                                                        </button>
+                                                    )
                                                 ) : (
-                                                    <button
-                                                        onClick={(e) => { e.stopPropagation(); onRejectClick(property.id); }}
-                                                        className="px-4 py-2.5 text-left text-sm font-semibold text-rose-600 hover:bg-rose-50 transition-colors flex items-center gap-2"
-                                                    >
-                                                        Reject Property
-                                                    </button>
+                                                    canEditProperties && (
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); onRejectClick(property.id); }}
+                                                            className="px-4 py-2.5 text-left text-sm font-semibold text-rose-600 hover:bg-rose-50 transition-colors flex items-center gap-2"
+                                                        >
+                                                            Reject Property
+                                                        </button>
+                                                    )
                                                 )}
                                             </div>
                                         </div>
