@@ -51,7 +51,7 @@ export interface RbacRole {
 //  Payload for POST /rbac/roles -
 export interface CreateRolePayload {
   role: string;
-  organization_id: number;
+  organization_id?: number;
   permission: PermissionsMap[];
 }
 

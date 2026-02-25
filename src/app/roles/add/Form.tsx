@@ -72,7 +72,7 @@ export default function AddRoleForm() {
         setSubmitting(true);
         setError(null);
          let payload;
-if (organizationId) {
+if (organizationId !== "") {
       payload = {
             role: role.trim(),
             organization_id: organizationId,

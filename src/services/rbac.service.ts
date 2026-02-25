@@ -70,7 +70,7 @@ const normalizeRole = (raw: unknown): RbacRole => {
   const permissionsMap = extractPermissionsMap(input.permissions);
 
   return {
-    ...(input as RbacRole),
+    ...(input as unknown as Partial<RbacRole>),
     id,
     Id: id,
     role: roleName,

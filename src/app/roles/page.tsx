@@ -19,6 +19,7 @@ const formatRoleName = (name: string) =>
 
 const getInitials = (firstName: string, lastName: string) =>
     `${firstName?.[0] ?? ""}${lastName?.[0] ?? ""}`.toUpperCase() || "?";
+const getRoleId = (role: RbacRole): number => Number(role.id ?? role.Id ?? 0);
 
 export default function RolesPage() {
     const { currentTheme } = useTheme();
@@ -45,7 +46,7 @@ export default function RolesPage() {
         setDeleting(true);
         try {
             await deleteRole(deleteId);
-            setRoles((prev) => prev.filter((r) => r.id !== deleteId));
+            setRoles((prev) => prev.filter((r) => getRoleId(r) !== deleteId));
             if (expandedRole === deleteId) setExpandedRole(null);
         } catch (err) {
             console.error("Failed to delete role", err);
@@ -55,7 +56,7 @@ export default function RolesPage() {
         }
     };
 
-    const roleToDelete = roles.find((r) => r.id === deleteId);
+    const roleToDelete = roles.find((r) => getRoleId(r) === deleteId);
 
     if (loading) {
         return (
@@ -88,16 +89,16 @@ export default function RolesPage() {
             <div className="grid gap-4">
                 {roles.map((role, idx) => (
                     <div
-                        key={role.id}
-                        className={`rounded-xl border transition-all duration-300 overflow-hidden backdrop-blur-md ${expandedRole === role.id ? "shadow-md" : "hover:shadow-sm"}`}
+                        key={getRoleId(role)}
+                        className={`rounded-xl border transition-all duration-300 overflow-hidden backdrop-blur-md ${expandedRole === getRoleId(role) ? "shadow-md" : "hover:shadow-sm"}`}
                         style={{
                             backgroundColor: currentTheme.cardBg + 'E6',
-                            borderColor: expandedRole === role.id ? currentTheme.primary : currentTheme.borderColor
+                            borderColor: expandedRole === getRoleId(role) ? currentTheme.primary : currentTheme.borderColor
                         }}
                     >
                         {/* Header */}
                         <div
-                            onClick={() => toggleExpand(role.id)}
+                            onClick={() => toggleExpand(getRoleId(role))}
                             className="p-5 cursor-pointer flex items-center justify-between"
                         >
                             <div className="flex items-center gap-5">
@@ -118,7 +119,7 @@ export default function RolesPage() {
                                 </div>
 
                                 <button
-                                    onClick={(e) => { e.stopPropagation(); setDeleteId(role.id); }}
+                                    onClick={(e) => { e.stopPropagation(); setDeleteId(getRoleId(role)); }}
                                     className="w-8 h-8 rounded-full flex items-center justify-center transition-all hover:bg-red-50 hover:text-red-500"
                                     style={{ color: currentTheme.textColor }}
                                     title="Delete role"
@@ -127,10 +128,10 @@ export default function RolesPage() {
                                 </button>
 
                                 <button
-                                    className={`w-8 h-8 rounded-full flex items-center justify-center transition-all hover:opacity-80 ${expandedRole === role.id ? "rotate-90 text-white" : ""}`}
+                                    className={`w-8 h-8 rounded-full flex items-center justify-center transition-all hover:opacity-80 ${expandedRole === getRoleId(role) ? "rotate-90 text-white" : ""}`}
                                     style={{
-                                        backgroundColor: expandedRole === role.id ? currentTheme.primary : currentTheme.background,
-                                        color: expandedRole === role.id ? 'white' : currentTheme.textColor
+                                        backgroundColor: expandedRole === getRoleId(role) ? currentTheme.primary : currentTheme.background,
+                                        color: expandedRole === getRoleId(role) ? 'white' : currentTheme.textColor
                                     }}
                                 >
                                     <MdArrowForward size={18} />
@@ -139,7 +140,7 @@ export default function RolesPage() {
                         </div>
 
                         {/* Expanded Content */}
-                        {expandedRole === role.id && (
+                        {expandedRole === getRoleId(role) && (
                             <div className="border-t p-6" style={{ backgroundColor: currentTheme.background + '80', borderColor: currentTheme.borderColor }}>
                                 <div className="border rounded-lg overflow-hidden" style={{ backgroundColor: currentTheme.cardBg, borderColor: currentTheme.borderColor }}>
                                     <table className="w-full text-left">
