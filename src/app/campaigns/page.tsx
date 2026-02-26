@@ -6,6 +6,7 @@ import { useTheme } from "@/providers/ThemeProvider";
 import { useRouter } from "next/navigation";
 import { ConfirmModal } from "@/components/common/ConfirmModal";
 import { getCampaignsService, deleteCampaignService, updateCampaignService } from "@/services/campaigns.service";
+import { useModulePermission } from "@/hooks/useModulePermission";
 
 export default function CampaignsPage() {
     const { currentTheme } = useTheme();
@@ -18,6 +19,11 @@ export default function CampaignsPage() {
     const [activeMenuId, setActiveMenuId] = React.useState<number | null>(null);
     const [deleteId, setDeleteId] = React.useState<number | null>(null);
     const menuRef = React.useRef<HTMLDivElement>(null);
+    const { permissionReady, can } = useModulePermission("campaign");
+    const canViewCampaign = can("view");
+    const canAddCampaign = can("add");
+    const canEditCampaign = can("edit");
+    const canDeleteCampaign = can("delete");
 
     // Fetch Campaigns
     const fetchCampaigns = async () => {
@@ -52,8 +58,14 @@ export default function CampaignsPage() {
     };
 
     React.useEffect(() => {
+        if (!permissionReady) return;
+        if (!canViewCampaign) {
+            setCampaigns([]);
+            setLoading(false);
+            return;
+        }
         fetchCampaigns();
-    }, []);
+    }, [permissionReady, canViewCampaign]);
 
     // Handle Click Outside Menu
     React.useEffect(() => {
@@ -75,12 +87,13 @@ export default function CampaignsPage() {
     };
 
     const handleDeleteClick = (id: number) => {
+        if (!canDeleteCampaign) return;
         setDeleteId(id);
         setActiveMenuId(null);
     };
 
     const confirmDelete = async () => {
-        if (!deleteId) return;
+        if (!deleteId || !canDeleteCampaign) return;
         try {
             await deleteCampaignService(deleteId);
             setCampaigns(prev => prev.filter(c => c.id !== deleteId));
@@ -92,6 +105,7 @@ export default function CampaignsPage() {
     };
 
     const handleToggleStatus = async (id: number, currentStatus: string) => {
+        if (!canEditCampaign) return;
         const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
         try {
             await updateCampaignService(id, { status: newStatus });
@@ -129,6 +143,16 @@ export default function CampaignsPage() {
         }
     };
 
+    if (!loading && permissionReady && !canViewCampaign) {
+        return (
+            <div className="max-w-[1600px] mx-auto py-10">
+                <div className="rounded-xl border px-5 py-4 text-sm font-medium" style={{ borderColor: currentTheme.borderColor, color: currentTheme.textColor }}>
+                    You do not have `view` permission for Campaigns.
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="max-w-[1600px] mx-auto space-y-8 min-h-screen pb-10">
 
@@ -155,14 +179,16 @@ export default function CampaignsPage() {
                             }}
                         />
                     </div>
-                    <button
-                        onClick={() => router.push('/campaigns/add')}
-                        className="px-5 py-2.5 text-white rounded-lg shadow-sm hover:brightness-110 transition-all font-bold text-sm flex items-center gap-2"
-                        style={{ backgroundColor: currentTheme.primary }}
-                    >
-                        <MdAdd size={20} />
-                        Create Campaign
-                    </button>
+                    {canAddCampaign && (
+                        <button
+                            onClick={() => router.push('/campaigns/add')}
+                            className="px-5 py-2.5 text-white rounded-lg shadow-sm hover:brightness-110 transition-all font-bold text-sm flex items-center gap-2"
+                            style={{ backgroundColor: currentTheme.primary }}
+                        >
+                            <MdAdd size={20} />
+                            Create Campaign
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -207,13 +233,15 @@ export default function CampaignsPage() {
                                 </div>
 
                                 <div className="relative">
-                                    <button
-                                        onClick={(e) => toggleMenu(campaign.id, e)}
-                                        className="hover:opacity-80 p-1 rounded-full hover:bg-black/5 transition-colors"
-                                        style={{ color: currentTheme.textColor }}
-                                    >
-                                        <MdMoreHoriz size={24} />
-                                    </button>
+                                    {(canViewCampaign || canEditCampaign || canDeleteCampaign) && (
+                                        <button
+                                            onClick={(e) => toggleMenu(campaign.id, e)}
+                                            className="hover:opacity-80 p-1 rounded-full hover:bg-black/5 transition-colors"
+                                            style={{ color: currentTheme.textColor }}
+                                        >
+                                            <MdMoreHoriz size={24} />
+                                        </button>
+                                    )}
 
                                     {activeMenuId === campaign.id && (
                                         <div
@@ -226,41 +254,51 @@ export default function CampaignsPage() {
                                             onClick={(e) => e.stopPropagation()}
                                         >
                                             <div className="flex flex-col py-1">
-                                                <button
-                                                    onClick={() => router.push(`/campaigns/analytics/${campaign.id}`)}
-                                                    className="w-full px-4 py-2.5 text-left text-sm font-semibold hover:bg-black/5 transition-colors flex items-center gap-2"
-                                                    style={{ color: currentTheme.headingColor }}
-                                                >
-                                                    <MdBarChart size={18} className="opacity-70" />
-                                                    View Analytics
-                                                </button>
-                                                <button
-                                                    onClick={() => router.push(`/campaigns/edit/${campaign.id}`)}
-                                                    className="w-full px-4 py-2.5 text-left text-sm font-semibold hover:bg-black/5 transition-colors flex items-center gap-2"
-                                                    style={{ color: currentTheme.headingColor }}
-                                                >
-                                                    <MdEdit size={18} className="opacity-70" />
-                                                    Edit Campaign
-                                                </button>
-                                                <button
-                                                    onClick={() => handleToggleStatus(campaign.id, campaign.status)}
-                                                    className="w-full px-4 py-2.5 text-left text-sm font-semibold hover:bg-black/5 transition-colors flex items-center gap-2"
-                                                    style={{ color: currentTheme.textColor }}
-                                                >
-                                                    {campaign.status === 'active' ? <MdPauseCircle size={18} className="text-amber-500" /> : <MdPlayArrow size={18} className="text-emerald-500" />}
-                                                    {campaign.status === 'active' ? 'Pause Campaign' : 'Resume Campaign'}
-                                                </button>
-                                                <div className="h-px mx-4 my-1 opacity-20" style={{ backgroundColor: currentTheme.borderColor }} />
-                                                <button
-                                                    onClick={(e) => {
-                                                        toggleMenu(campaign.id, e);
-                                                        handleDeleteClick(campaign.id);
-                                                    }}
-                                                    className="w-full px-4 py-2.5 text-left text-sm font-semibold hover:bg-red-50 dark:hover:bg-red-900/20 text-red-500 transition-colors flex items-center gap-2"
-                                                >
-                                                    <MdDelete size={18} />
-                                                    Delete
-                                                </button>
+                                                {canViewCampaign && (
+                                                    <button
+                                                        onClick={() => router.push(`/campaigns/analytics/${campaign.id}`)}
+                                                        className="w-full px-4 py-2.5 text-left text-sm font-semibold hover:bg-black/5 transition-colors flex items-center gap-2"
+                                                        style={{ color: currentTheme.headingColor }}
+                                                    >
+                                                        <MdBarChart size={18} className="opacity-70" />
+                                                        View Analytics
+                                                    </button>
+                                                )}
+                                                {canEditCampaign && (
+                                                    <>
+                                                        <button
+                                                            onClick={() => router.push(`/campaigns/edit/${campaign.id}`)}
+                                                            className="w-full px-4 py-2.5 text-left text-sm font-semibold hover:bg-black/5 transition-colors flex items-center gap-2"
+                                                            style={{ color: currentTheme.headingColor }}
+                                                        >
+                                                            <MdEdit size={18} className="opacity-70" />
+                                                            Edit Campaign
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleToggleStatus(campaign.id, campaign.status)}
+                                                            className="w-full px-4 py-2.5 text-left text-sm font-semibold hover:bg-black/5 transition-colors flex items-center gap-2"
+                                                            style={{ color: currentTheme.textColor }}
+                                                        >
+                                                            {campaign.status === 'active' ? <MdPauseCircle size={18} className="text-amber-500" /> : <MdPlayArrow size={18} className="text-emerald-500" />}
+                                                            {campaign.status === 'active' ? 'Pause Campaign' : 'Resume Campaign'}
+                                                        </button>
+                                                    </>
+                                                )}
+                                                {canDeleteCampaign && (
+                                                    <>
+                                                        <div className="h-px mx-4 my-1 opacity-20" style={{ backgroundColor: currentTheme.borderColor }} />
+                                                        <button
+                                                            onClick={(e) => {
+                                                                toggleMenu(campaign.id, e);
+                                                                handleDeleteClick(campaign.id);
+                                                            }}
+                                                            className="w-full px-4 py-2.5 text-left text-sm font-semibold hover:bg-red-50 dark:hover:bg-red-900/20 text-red-500 transition-colors flex items-center gap-2"
+                                                        >
+                                                            <MdDelete size={18} />
+                                                            Delete
+                                                        </button>
+                                                    </>
+                                                )}
                                             </div>
                                         </div>
                                     )}
@@ -383,7 +421,7 @@ export default function CampaignsPage() {
             )}
 
             <ConfirmModal
-                isOpen={!!deleteId}
+                isOpen={canDeleteCampaign && !!deleteId}
                 onClose={() => setDeleteId(null)}
                 onConfirm={confirmDelete}
                 title="Delete Campaign"

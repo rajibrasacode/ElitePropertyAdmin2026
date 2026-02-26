@@ -252,25 +252,45 @@ export default function OrganizationDetailsPage() {
     selectedRole?.title ||
     "Custom defined role with specific permission sets.";
 
-  // Helper to check if a permission exists in the role's permissions array
+  // Supports both legacy permission strings and map-style permissions from API.
   const checkPermission = (role: any, module: string, action: string) => {
     if (!role || !role.permissions || !Array.isArray(role.permissions)) {
       return false;
     }
 
-    // Check if permission exists in the array
-    // Permissions can be strings "module.action" or objects { permission_name: "module.action" }
+    const normalizedAction = action === "create" ? "add" : action;
+    const firstEntry = role.permissions[0];
+    const mapSource =
+      firstEntry && typeof firstEntry === "object"
+        ? firstEntry.permissions || firstEntry
+        : null;
+
+    // New format: permissions: [{ campaign: { view/add/edit/delete } ... }]
+    if (mapSource && typeof mapSource === "object") {
+      const moduleKeys =
+        module === "users"
+          ? ["users", "user_management"]
+          : [module];
+
+      return moduleKeys.some((moduleKey) => {
+        const modulePerms = (mapSource as any)[moduleKey];
+        if (!modulePerms || typeof modulePerms !== "object") return false;
+        if (modulePerms.view === false && normalizedAction !== "view") {
+          return false;
+        }
+        return Boolean(modulePerms[normalizedAction]);
+      });
+    }
+
+    // Legacy format: ["module.action"] or [{ permission_name: "module.action" }]
     return role.permissions.some((p: any) => {
       const permissionString =
         typeof p === "string" ? p : p.permission_name || p.name || "";
 
-      // Exact match "module.action"
-      if (permissionString === `${module}.${action}`) return true;
+      if (permissionString === `${module}.${normalizedAction}`) return true;
 
-      // Wildcard match "module.*"
       if (permissionString === `${module}.*`) return true;
 
-      // Super wildcard "*"
       if (permissionString === "*") return true;
 
       return false;

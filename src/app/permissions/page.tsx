@@ -41,6 +41,29 @@ const MODULE_ICONS: Record<ModuleKey, React.ReactNode> = {
 // ============================================================
 export default function PermissionsPage() {
   const { currentTheme } = useTheme();
+  const getRoleId = (
+    role: (RbacRole & { id?: number }) | null | undefined,
+  ): number => Number(role?.id ?? role?.Id ?? 0);
+  const normalizeRoleValue = (value?: string | null): string =>
+    String(value ?? "")
+      .toLowerCase()
+      .replace(/[\s_-]/g, "");
+  const isSuperAdminRole = (
+    role: (RbacRole & { id?: number; role?: string }) | null | undefined,
+  ): boolean => {
+    const roleName = normalizeRoleValue(role?.name || role?.role);
+    const roleTitle = normalizeRoleValue(role?.role_title);
+    return roleName === "superadmin" || roleTitle === "superadmin";
+  };
+  const toTitleCase = (value?: string | null): string =>
+    String(value ?? "")
+      .replace(/[_-]+/g, " ")
+      .toLowerCase()
+      .replace(/\b\w/g, (char) => char.toUpperCase())
+      .trim();
+  const getRoleLabel = (
+    role: (RbacRole & { id?: number; role?: string }) | null | undefined,
+  ) => toTitleCase(role?.role_title || role?.name || role?.role || "");
 
   // ---- state -----------------------------------------------
   const [roles, setRoles] = useState<RbacRole[]>([]);
@@ -58,7 +81,7 @@ export default function PermissionsPage() {
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
 
   // ---- derived — uses PascalCase Name from API -------------
-  const isSuperAdmin = selectedRole?.name?.toLowerCase() === "super_admin";
+  const isSuperAdmin = isSuperAdminRole(selectedRole);
 
   // ---- load all roles on mount ----------------------------
   useEffect(() => {
@@ -97,7 +120,7 @@ export default function PermissionsPage() {
       setSaveMsg(null);
       try {
         // Optimistically render from cache first
-        const cached = roles.find((r) => r.id === id);
+        const cached = roles.find((r) => getRoleId(r) === id);
         if (cached) {
           const matrix = mapPermissionsToMatrix(cached.permissions);
           setSelectedRole(cached);
@@ -113,7 +136,7 @@ export default function PermissionsPage() {
         setOriginalMatrix(matrix);
 
         // Update cache entry
-        setRoles((prev) => prev.map((r) => (r.id === id ? fresh : r)));
+        setRoles((prev) => prev.map((r) => (getRoleId(r) === id ? fresh : r)));
       } catch (err: any) {
         setError(
           err?.response?.data?.message ??
@@ -159,7 +182,10 @@ export default function PermissionsPage() {
       const matrix = mapPermissionsToMatrix(updated.permissions);
       setPermissions(matrix);
       setOriginalMatrix(matrix);
-      setRoles((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
+      const updatedRoleId = getRoleId(updated);
+      setRoles((prev) =>
+        prev.map((r) => (getRoleId(r) === updatedRoleId ? updated : r)),
+      );
       setTimeout(() => {
         showSuccessToast("Permissions saved successfully.");
       }, 1000);
@@ -289,12 +315,15 @@ export default function PermissionsPage() {
                     borderColor: currentTheme.borderColor,
                     color: currentTheme.headingColor,
                   }}
-                  value={selectedRole?.id ?? ""}
+                  value={String(getRoleId(selectedRole) || "")}
                   onChange={(e) => handleRoleChange(e.target.value)}
                 >
                   {roles.map((role) => (
-                    <option key={String(role.id)} value={String(role.id)}>
-                      {role.role_title}
+                    <option
+                      key={String(getRoleId(role))}
+                      value={String(getRoleId(role))}
+                    >
+                      {getRoleLabel(role)}
                     </option>
                   ))}
                 </select>

@@ -37,10 +37,12 @@ export interface RbacUser {
 
 //  Role object returned by GET /rbac/roles --
 export interface RbacRole {
+  id?: number;
   Id: number;
+  role?: string;
   name: string;
   role_title: string;
-  permissions: RbacPermissionEntry[];
+  permissions: Array<RbacPermissionEntry | PermissionsMap>;
   organization: RbacOrganization | null;
   users: RbacUser[];
   user_count: number;
@@ -49,7 +51,7 @@ export interface RbacRole {
 //  Payload for POST /rbac/roles -
 export interface CreateRolePayload {
   role: string;
-  organization_id: number;
+  organization_id?: number;
   permission: PermissionsMap[];
 }
 
@@ -61,7 +63,9 @@ export interface UpdateRolePermissionsPayload {
 
 //  GET /rbac/my-permissions -
 export interface MyPermissionsResponse {
-  role: string;
+  role?: string;
+  name?: string;
+  role_title?: string;
   permissions: PermissionsMap;
 }
 
