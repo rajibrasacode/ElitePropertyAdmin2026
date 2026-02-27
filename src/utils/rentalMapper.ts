@@ -268,7 +268,7 @@ const mapSmokingPolicy = (value: string) => {
   return "not_allowed";
 };
 
-export const mapPropertyFormToRentalPayload = (source: FormData): FormData => {
+export const mapPropertyFormToRentalPayload = (source: FormData, isUpdate: boolean = false): FormData => {
   const output = new FormData();
   const scalarMap: Record<string, string> = {
     rent_price: "monthly_rent",
@@ -301,7 +301,19 @@ export const mapPropertyFormToRentalPayload = (source: FormData): FormData => {
     application_fee: "application_fee",
     move_in_fees: "move_in_fees",
     seller_notes: "notes",
+    is_furnished: "is_furnished",
+    pets_allowed: "pets_allowed",
   };
+
+  const excludedOnUpdate = [
+    "interior_condition",
+    "exterior_paint_required",
+    "new_floor_required",
+    "kitchen_renovation_required",
+    "bathroom_renovation_required",
+    "drywall_repair_required",
+    "interior_paint_required",
+  ];
 
   let availableFrom = "";
 
@@ -335,6 +347,9 @@ export const mapPropertyFormToRentalPayload = (source: FormData): FormData => {
 
     const mappedKey = scalarMap[key];
     if (mappedKey) {
+      if (isUpdate && excludedOnUpdate.includes(mappedKey)) {
+        return;
+      }
       output.append(mappedKey, String(value));
       if (mappedKey === "available_from") {
         availableFrom = String(value);
@@ -344,6 +359,10 @@ export const mapPropertyFormToRentalPayload = (source: FormData): FormData => {
 
   if (availableFrom) {
     output.append("start_date", availableFrom);
+  } else {
+    // If start_date is completely missing, append an empty string so the field exists
+    // but honestly it should come from the form's available_from.
+    output.append("start_date", new Date().toISOString().split("T")[0]);
   }
 
   return output;

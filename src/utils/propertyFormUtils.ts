@@ -95,10 +95,10 @@ export const listingTypeOptions = [
 ];
 
 export const rentFrequencyOptions = [
-  { value: "Monthly", label: "Monthly" },
-  { value: "Weekly", label: "Weekly" },
-  { value: "Daily", label: "Daily" },
-  { value: "Yearly", label: "Yearly" },
+  { value: "monthly", label: "Monthly" },
+  { value: "weekly", label: "Weekly" },
+  { value: "bi-weekly", label: "Bi-Wekly" },
+  { value: "annually", label: "Annually" },
 ];
 
 export const utilityOptions = [
@@ -135,9 +135,9 @@ export const amenityOptions = [
 ];
 
 export const smokingPolicyOptions = [
-  { value: "Allowed", label: "Allowed" },
-  { value: "Not Allowed", label: "Not Allowed" },
-  { value: "Outdoors Only", label: "Outdoors Only" },
+  { value: "allowed", label: "Allowed" },
+  { value: "not_allowed", label: "Not Allowed" },
+  { value: "designated_areas", label: "Designated Areas" },
 ];
 
 // Function to get initial form data
@@ -308,9 +308,10 @@ export const propertyListingSchema = yup.object({
   interior_paint_required: yup.boolean().required("Interior paint is required"),
 
   // Financial Information
-  // Financial Information
   listing_price: yup
     .number()
+    .transform((value, originalValue) => (originalValue === "" ? null : value))
+    .nullable()
     .when("listing_type", {
       is: (val: string) => val === "Sale" || val === "Both",
       then: (schema) =>
@@ -322,6 +323,8 @@ export const propertyListingSchema = yup.object({
     }),
   asking_price: yup
     .number()
+    .transform((value, originalValue) => (originalValue === "" ? null : value))
+    .nullable()
     .when("listing_type", {
       is: (val: string) => val === "Sale" || val === "Both",
       then: (schema) =>
@@ -333,6 +336,8 @@ export const propertyListingSchema = yup.object({
     }),
   arv: yup
     .number()
+    .transform((value, originalValue) => (originalValue === "" ? null : value))
+    .nullable()
     .when("listing_type", {
       is: (val: string) => val === "Sale" || val === "Both",
       then: (schema) =>
@@ -341,10 +346,11 @@ export const propertyListingSchema = yup.object({
           .required("ARV is required")
           .min(10000, "Must be 10000 or greater"),
       otherwise: (schema) => schema.notRequired().nullable(),
-    })
-    .transform((v, o) => (o === "" ? null : v)),
+    }),
   repair_estimate: yup
     .number()
+    .transform((value, originalValue) => (originalValue === "" ? null : value))
+    .nullable()
     .when("listing_type", {
       is: (val: string) => val === "Sale" || val === "Both",
       then: (schema) =>
@@ -353,10 +359,11 @@ export const propertyListingSchema = yup.object({
           .required("Repair estimate is required")
           .min(100, "Must be 100 or greater"),
       otherwise: (schema) => schema.notRequired().nullable(),
-    })
-    .transform((v, o) => (o === "" ? null : v)),
+    }),
   holding_costs: yup
     .number()
+    .transform((value, originalValue) => (originalValue === "" ? null : value))
+    .nullable()
     .when("listing_type", {
       is: (val: string) => val === "Sale" || val === "Both",
       then: (schema) =>
@@ -365,8 +372,7 @@ export const propertyListingSchema = yup.object({
           .required("Holding costs is required")
           .min(100, "Must be 100 or greater"),
       otherwise: (schema) => schema.notRequired().nullable(),
-    })
-    .transform((v, o) => (o === "" ? null : v)),
+    }),
   transaction_type: yup.string().when("listing_type", {
     is: (val: string) => val === "Sale" || val === "Both",
     then: (schema) => schema.required("Transaction type is required"),
@@ -374,6 +380,8 @@ export const propertyListingSchema = yup.object({
   }),
   assignment_fee: yup
     .number()
+    .transform((value, originalValue) => (originalValue === "" ? null : value))
+    .nullable()
     .when("listing_type", {
       is: (val: string) => val === "Sale" || val === "Both",
       then: (schema) =>
@@ -382,47 +390,56 @@ export const propertyListingSchema = yup.object({
           .required("Assignment fee is required")
           .min(100, "Must be 100 or greater"),
       otherwise: (schema) => schema.notRequired().nullable(),
-    })
-    .transform((v, o) => (o === "" ? null : v)),
+    }),
 
   // Rental Specific Validation
-  rent_price: yup.number().when("listing_type", {
-    is: (val: string) => val === "Rent" || val === "Both",
-    then: (schema) =>
-      schema
-        .typeError("Rent price must be a number")
-        .required("Rent price is required")
-        .min(1, "Price must be greater than 0"),
-    otherwise: (schema) => schema.notRequired().nullable(),
-  }),
+  rent_price: yup
+    .number()
+    .transform((value, originalValue) => (originalValue === "" ? null : value))
+    .nullable()
+    .when("listing_type", {
+      is: (val: string) => val === "Rent" || val === "Both",
+      then: (schema) =>
+        schema
+          .typeError("Rent price must be a number")
+          .required("Rent price is required")
+          .min(1, "Price must be greater than 0"),
+      otherwise: (schema) => schema.notRequired().nullable(),
+    }),
   rent_frequency: yup.string().when("listing_type", {
     is: (val: string) => val === "Rent" || val === "Both",
     then: (schema) => schema.required("Frequency is required"),
     otherwise: (schema) => schema.notRequired().nullable(),
   }),
-  security_deposit: yup.number().when("listing_type", {
-    is: (val: string) => val === "Rent" || val === "Both",
-    then: (schema) =>
-      schema
-        .typeError("Security deposit must be a number")
-        .min(0, "Must be 0 or greater")
-        .transform((v, o) => (o === "" ? null : v)),
-    otherwise: (schema) => schema.notRequired().nullable(),
-  }),
+  security_deposit: yup
+    .number()
+    .transform((value, originalValue) => (originalValue === "" ? null : value))
+    .nullable()
+    .when("listing_type", {
+      is: (val: string) => val === "Rent" || val === "Both",
+      then: (schema) =>
+        schema
+          .typeError("Security deposit must be a number")
+          .min(0, "Must be 0 or greater"),
+      otherwise: (schema) => schema.notRequired().nullable(),
+    }),
   available_from: yup.string().when("listing_type", {
     is: (val: string) => val === "Rent" || val === "Both",
     then: (schema) => schema.required("Available date is required"),
     otherwise: (schema) => schema.notRequired().nullable(),
   }),
-  lease_duration: yup.number().when("listing_type", {
-    is: (val: string) => val === "Rent" || val === "Both",
-    then: (schema) =>
-      schema
-        .typeError("Lease duration must be a number")
-        .min(1, "Must be at least 1 month")
-        .transform((v, o) => (o === "" ? null : v)),
-    otherwise: (schema) => schema.notRequired().nullable(),
-  }),
+  lease_duration: yup
+    .number()
+    .transform((value, originalValue) => (originalValue === "" ? null : value))
+    .nullable()
+    .when("listing_type", {
+      is: (val: string) => val === "Rent" || val === "Both",
+      then: (schema) =>
+        schema
+          .typeError("Lease duration must be a number")
+          .min(1, "Must be at least 1 month"),
+      otherwise: (schema) => schema.notRequired().nullable(),
+    }),
 
   // Additional Information
   property_description: yup.string().nullable().notRequired(),
@@ -439,28 +456,33 @@ export const propertyListingSchema = yup.object({
           (value) => typeof value === "string" || value instanceof File,
         ),
     )
-    .min(1, "At least one property image is required")
-    .required("Images are required"),
+    .nullable(),
 
   // Additional Rental Validation
-  application_fee: yup.number().when("listing_type", {
-    is: (val: string) => val === "Rent" || val === "Both",
-    then: (schema) =>
-      schema
-        .typeError("Application fee must be a number")
-        .min(0, "Must be 0 or greater")
-        .transform((v, o) => (o === "" ? null : v)),
-    otherwise: (schema) => schema.notRequired().nullable(),
-  }),
-  move_in_fees: yup.number().when("listing_type", {
-    is: (val: string) => val === "Rent" || val === "Both",
-    then: (schema) =>
-      schema
-        .typeError("Move-in fees must be a number")
-        .min(0, "Must be 0 or greater")
-        .transform((v, o) => (o === "" ? null : v)),
-    otherwise: (schema) => schema.notRequired().nullable(),
-  }),
+  application_fee: yup
+    .number()
+    .transform((value, originalValue) => (originalValue === "" ? null : value))
+    .nullable()
+    .when("listing_type", {
+      is: (val: string) => val === "Rent" || val === "Both",
+      then: (schema) =>
+        schema
+          .typeError("Application fee must be a number")
+          .min(0, "Must be 0 or greater"),
+      otherwise: (schema) => schema.notRequired().nullable(),
+    }),
+  move_in_fees: yup
+    .number()
+    .transform((value, originalValue) => (originalValue === "" ? null : value))
+    .nullable()
+    .when("listing_type", {
+      is: (val: string) => val === "Rent" || val === "Both",
+      then: (schema) =>
+        schema
+          .typeError("Move-in fees must be a number")
+          .min(0, "Must be 0 or greater"),
+      otherwise: (schema) => schema.notRequired().nullable(),
+    }),
   smoking_policy: yup.string().when("listing_type", {
     is: (val: string) => val === "Rent" || val === "Both",
     then: (schema) => schema.required("Smoking policy is required"),

@@ -105,7 +105,7 @@ export default function RentReviewPropertyPage() {
                 await cancelRentalService(property.id);
                 showSuccessToast("Property Rejected.");
             }
-            router.push("/properties/rent");
+            router.push("/rent");
         } catch (err: unknown) {
             showErrorToast(getErrorMessage(err, `Failed to ${pendingAction} property.`));
         } finally {
@@ -127,7 +127,7 @@ export default function RentReviewPropertyPage() {
         return (
             <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
                 <div className="text-red-500 text-xl font-bold">{error || "Property not found"}</div>
-                <Link href="/properties/rent">
+                <Link href="/rent">
                     <button className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">
                         Back to Rent Listings
                     </button>
@@ -163,7 +163,7 @@ export default function RentReviewPropertyPage() {
 
             {/* Header / Nav */}
             <div className="flex items-center justify-between">
-                <Link href="/properties/rent" className="flex items-center gap-2 hover:opacity-70 transition-opacity" style={{ color: currentTheme.textColor }}>
+                <Link href="/rent" className="flex items-center gap-2 hover:opacity-70 transition-opacity" style={{ color: currentTheme.textColor }}>
                     <MdArrowBack size={20} />
                     <span className="font-bold">Back to Rent Listings</span>
                 </Link>
@@ -485,10 +485,10 @@ export default function RentReviewPropertyPage() {
                                 <div className="font-bold text-sm" style={{ color: currentTheme.headingColor }}>
                                     {creator?.fullName || "Listing Agent"}
                                 </div>
-                                
+
                                 {creator?.username && (
                                     <div className="text-[11px] opacity-60" style={{ color: currentTheme.textColor }}>
-                                  {creator.username}
+                                        {creator.username}
                                     </div>
                                 )}
                             </div>
