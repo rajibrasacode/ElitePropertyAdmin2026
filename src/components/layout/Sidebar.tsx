@@ -42,18 +42,19 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { name: "Dashboard",     icon: <MdDashboard />,          path: "/dashboard",     alwaysShow: true },
-  { name: "Organizations", icon: <MdBusiness />,           path: "/organizations", superAdminOnly: true },
-  { name: "Properties",    icon: <MdApartment />,          path: "/properties",    permission: "properties" },
-  { name: "Users & Agents",icon: <MdPeople />,             path: "/users",         permission: "user_management" },
-  { name: "Campaigns",     icon: <MdCampaign />,           path: "/campaigns",     permission: "campaign" },
-  { name: "Access Roles",  icon: <MdKey />,                path: "/roles",         superAdminOnly: true },
-  { name: "Permissions",   icon: <MdSecurity />,           path: "/permissions",   superAdminOnly: true },
-  { name: "Settings",      icon: <MdSettings />,           path: "/settings",      alwaysShow: true },
+  { name: "Dashboard", icon: <MdDashboard />, path: "/dashboard", alwaysShow: true },
+  { name: "Organizations", icon: <MdBusiness />, path: "/organizations", superAdminOnly: true },
+  { name: "Properties", icon: <MdApartment />, path: "/properties", permission: "properties" },
+  { name: "Rentals", icon: <MdApartment />, path: "/rent", permission: "properties" },
+  { name: "Users & Agents", icon: <MdPeople />, path: "/users", permission: "user_management" },
+  { name: "Campaigns", icon: <MdCampaign />, path: "/campaigns", permission: "campaign" },
+  { name: "Access Roles", icon: <MdKey />, path: "/roles", superAdminOnly: true },
+  { name: "Permissions", icon: <MdSecurity />, path: "/permissions", superAdminOnly: true },
+  { name: "Settings", icon: <MdSettings />, path: "/settings", alwaysShow: true },
 ];
 
-const MANAGEMENT_PATHS = ["/organizations", "/properties", "/users", "/campaigns"];
-const SYSTEM_PATHS     = ["/roles", "/permissions", "/settings"];
+const MANAGEMENT_PATHS = ["/organizations", "/properties", "/rent", "/users", "/campaigns"];
+const SYSTEM_PATHS = ["/roles", "/permissions", "/settings"];
 
 // ─── Hydration-safe NavLink ───────────────────────────────────────────────────
 const NavLink = ({
@@ -165,13 +166,13 @@ const UserFooter = ({
   const getInitials = () => {
     if (!mounted || !user) return "";
     const first = user.first_name?.[0] ?? "";
-    const last  = user.last_name?.[0]  ?? "";
+    const last = user.last_name?.[0] ?? "";
     return (first + last).toUpperCase();
   };
 
   const formatRole = (roles?: any[]) => {
     if (!mounted || !roles || roles.length === 0) return "";
-    const r    = roles[0];
+    const r = roles[0];
     const name = typeof r === "string" ? r : r?.Name ?? r?.name ?? r?.role ?? "";
     return name
       .split("_")
@@ -236,14 +237,14 @@ const Sidebar: React.FC<SidebarProps> = ({
   mobileOpen,
   setMobileOpen,
 }) => {
-  const pathname  = usePathname();
-  const router    = useRouter();
+  const pathname = usePathname();
+  const router = useRouter();
   const { currentTheme } = useTheme();
   const { user, logout } = useAuth();
 
-  const [mounted, setMounted]                     = useState(false);
+  const [mounted, setMounted] = useState(false);
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
-  const [myPermissions, setMyPermissions]         = useState<PermissionsMap | null>(null);
+  const [myPermissions, setMyPermissions] = useState<PermissionsMap | null>(null);
 
   useEffect(() => { setMounted(true); }, []);
 

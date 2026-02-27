@@ -20,6 +20,11 @@ export default function PropertiesPage() {
     const canDeleteProperties = can("delete");
     const [properties, setProperties] = useState<PropertyData[]>([]);
     const [activeTab, setActiveTab] = useState<'all' | 'pending'>('all'); // Tab State
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
     const [loading, setLoading] = useState(true);
     const [showFilters, setShowFilters] = useState(false);
     const [activeMenuId, setActiveMenuId] = useState<number | string | null>(null);
@@ -349,7 +354,7 @@ export default function PropertiesPage() {
                             <MdFilterList size={18} />
                             Filter
                         </button>
-                        {canAddProperties && (
+                        {mounted && canAddProperties && (
                             <Link href="/properties/add" className="flex-1 sm:flex-none">
                                 <button
                                     className="w-full px-5 py-2.5 text-white rounded-lg shadow-sm hover:brightness-110 transition-all font-bold text-sm flex items-center justify-center gap-2 whitespace-nowrap"

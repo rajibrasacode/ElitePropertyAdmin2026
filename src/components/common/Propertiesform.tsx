@@ -1,6 +1,8 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { yupResolver } from "@hookform/resolvers/yup";
 import { useRouter } from "next/navigation";
 import {
   MdSave,
@@ -48,7 +50,6 @@ import { CheckboxButton } from "@/components/common/Checkboxbutton";
 import { FileUpload } from "@/components/common/Fileupload";
 import { Button } from "@/components/common/Button";
 import { ErrorMessage } from "./ErrorMessage";
-import { Switch } from "@/components/common/Switch";
 
 const MdPinDropIcon = MdLocationOn;
 
@@ -56,7 +57,7 @@ interface PropertyFormProps {
   mode: "add" | "edit";
   initialData?: any;
   existingImages?: string[];
-  onSubmit: (formData: FormData) => Promise<void>;
+  onSubmit: (formData: FormData) => Promise<void> | void;
   loading?: boolean;
   backUrl?: string;
 }
@@ -64,412 +65,223 @@ interface PropertyFormProps {
 export default function PropertyForm({
   mode,
   initialData,
-  existingImages: initialExistingImages = [],
+  existingImages = [],
   onSubmit,
   loading = false,
   backUrl = "/properties",
 }: PropertyFormProps) {
   const router = useRouter();
   const isEditMode = mode === "edit";
-  const normalizeListingType = (
-    listingType?: PropertyFormData["listing_type"],
-  ): PropertyFormData["listing_type"] => {
-    if (listingType === "Rent") return "Rent";
-    return "Sale";
-  };
 
-  const [formData, setFormData] = useState<PropertyFormData>(
-    initialData
-      ? { ...initialData, listing_type: normalizeListingType(initialData.listing_type) }
-      : getInitialFormData(),
-  );
+  const {
+    register,
+    handleSubmit: hookFormSubmit,
+    setValue,
+    watch,
+    setError,
+    formState: { errors, isSubmitting }
+  } = useForm<PropertyFormData>({
+    resolver: yupResolver(propertyListingSchema) as any,
+    defaultValues: initialData || { ...getInitialFormData(), listing_type: "Sale" }
+  });
 
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const formDataImages = watch("images");
+  const listingType = watch("listing_type");
 
-  // Update form data when initialData changes (for edit mode)
   useEffect(() => {
     if (initialData) {
-      setFormData({
-        ...initialData,
-        listing_type: normalizeListingType(initialData.listing_type),
+      Object.keys(initialData).forEach(key => {
+        setValue(key as any, initialData[key]);
       });
     }
-  }, [initialData]);
-
-  const handleChange = (
-    e: React.ChangeEvent<
-      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
-    >,
-  ) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-    // Clear error when user types
-    if (errors[name]) {
-      setErrors((prev) => {
-        const newErrors = { ...prev };
-        delete newErrors[name];
-        return newErrors;
-      });
-    }
-  };
-
-  const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, checked } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: checked }));
-  };
+  }, [initialData, setValue]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
-      const files = Array.from(e.target.files);
-      setFormData((prev) => ({ ...prev, images: files }));
-      // Clear error when files are selected
-      if (errors.images) {
-        setErrors((prev) => {
-          const newErrors = { ...prev };
-          delete newErrors.images;
-          return newErrors;
-        });
-      }
+      setValue("images", Array.from(e.target.files), { shouldValidate: true });
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const submitForm = async (data: PropertyFormData) => {
+    if (!isEditMode && (!data.images || data.images.length === 0)) {
+      setError("images", { type: "manual", message: "At least one property image is required" });
+      return;
+    }
 
     try {
-      setIsSubmitting(true);
-      setErrors({});
-      try {
-        const imagesForValidation =
-          formData.images && formData.images.length > 0
-            ? formData.images
-            : isEditMode && initialExistingImages.length > 0
-              ? initialExistingImages
-              : [];
-
-        await propertyListingSchema.validate(
-          { ...formData, images: imagesForValidation },
-          { abortEarly: false },
-        );
-      } catch (validationError: any) {
-        if (validationError.inner) {
-          const fieldErrors: Record<string, string> = {};
-          validationError.inner.forEach((err: any) => {
-            if (err.path && !fieldErrors[err.path]) {
-              fieldErrors[err.path] = err.message;
-            }
-          });
-          setErrors(fieldErrors);
-
-          // Scroll to first error field
-          const firstErrorKey = Object.keys(fieldErrors)[0];
-          const el = document.querySelector(`[name="${firstErrorKey}"]`);
-          if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
-        }
-        setIsSubmitting(false);
-        return;
-      }
-      // Create FormData for submission
+      console.log("Submit Form Data: ", data);
       const submitFormData = new FormData();
+      const excludeFields = [
+        "listing_type",
+        "rent_price",
+        "rent_frequency",
+        "security_deposit",
+        "available_from",
+        "lease_duration",
+        "is_furnished",
+        "pets_allowed",
+        "application_fee",
+        "move_in_fees",
+        "smoking_policy",
+        "utilities_included",
+        "amenities",
+        "status"
+      ];
 
-      // Add all form fields
-      Object.keys(formData).forEach((key) => {
-        if (key !== "images") {
-          const value = formData[key as keyof PropertyFormData];
-          if (value !== null && value !== undefined && value !== "") {
-            submitFormData.append(key, value.toString());
-          }
+      Object.entries(data).forEach(([key, value]) => {
+        if (
+          key !== "images" &&
+          !excludeFields.includes(key) &&
+          value !== null &&
+          value !== undefined &&
+          value !== ""
+        ) {
+          submitFormData.append(key, String(value));
         }
       });
-
-      // Add images
-      if (formData.images && Array.isArray(formData.images)) {
-        (formData.images as File[]).forEach((file) => {
-          submitFormData.append("images", file);
+      if (data.images && Array.isArray(data.images)) {
+        data.images.forEach((file) => {
+          if (file instanceof File) submitFormData.append("images", file);
         });
       }
-
-      // Call the onSubmit callback
       await onSubmit(submitFormData);
     } catch (error: any) {
       console.error("Form submission error:", error);
-
-      // Handle validation errors
-      if (error.errors) {
-        setErrors(error.errors);
-      } else {
-        alert(error.message || "Failed to submit form. Please try again.");
-      }
-    } finally {
-      setIsSubmitting(false);
+      alert(error.message || "Failed to submit form. Please try again.");
     }
   };
 
-  const getFieldError = (fieldName: string): string | undefined => {
-    return errors[fieldName];
+  const onInvalid = (errors: any) => {
+    console.error("Validation Errors:", errors);
+    const firstErrorKey = Object.keys(errors)[0];
+    if (firstErrorKey) {
+      const el = document.querySelector(`[name="${firstErrorKey}"]`);
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
   };
+
+  const handleSubmit = hookFormSubmit(submitForm, onInvalid);
+  const getFieldError = (fieldName: string): string | undefined => (errors as any)?.[fieldName]?.message;
 
   return (
     <div className="max-w-[1600px] mx-auto pb-20 fade-in-up">
       <PageHeader
         backLink={backUrl}
-        title={isEditMode ? "Edit Property" : "Add Property (Sale/Rent)"}
-        subtitle={
-          isEditMode ? "Update property details" : "Create a new listing"
-        }
+        title={isEditMode ? "Edit Property" : "Add Property"}
+        subtitle={isEditMode ? "Update details" : "Create a new property listing"}
         actions={
           <>
-            <Button variant="secondary" onClick={() => router.push(backUrl)}>
-              Cancel
-            </Button>
+            <Button variant="secondary" onClick={() => router.push(backUrl)}>Cancel</Button>
             <Button
               variant="primary"
               onClick={handleSubmit}
               icon={<MdSave size={18} />}
-              disabled={isSubmitting || loading}
+              disabled={loading}
             >
-              {isSubmitting
-                ? isEditMode
-                  ? "Updating..."
-                  : "Saving..."
-                : isEditMode
-                  ? "Update Property"
-                  : "Save Property"}
+              {loading ? "Saving..." : isEditMode ? "Update Property" : "Save Property"}
             </Button>
           </>
         }
       />
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* LISTING TYPE */}
-        <SectionCard stepNumber={1} title="Listing Type" bgColor="bg-blue-50" textColor="text-blue-600">
-          <div className="grid grid-cols-12 gap-x-4 gap-y-5">
-            <div className="col-span-12 sm:col-span-6">
-              <InputField label="This property is for:" required>
-                <div className="flex gap-4 mt-2">
-                  <Switch
-                    label="For Sale"
-                    checked={formData.listing_type === "Sale"}
-                    onChange={(checked) => {
-                      if (checked) {
-                        setFormData((prev) => ({ ...prev, listing_type: "Sale" }));
-                      }
-                    }}
-                    className="w-full sm:w-auto min-w-[140px]"
-                  />
-                  <Switch
-                    label="For Rent"
-                    checked={formData.listing_type === "Rent"}
-                    onChange={(checked) => {
-                      if (checked) {
-                        setFormData((prev) => ({ ...prev, listing_type: "Rent" }));
-                      }
-                    }}
-                    className="w-full sm:w-auto min-w-[140px]"
-                  />
-                </div>
-              </InputField>
-            </div>
-          </div>
-        </SectionCard>
+        <input type="hidden" {...register("listing_type")} value="Sale" />
+
         {/* ADDRESS & SPECS */}
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-          <SectionCard stepNumber={2} title="Property Address">
+          <SectionCard stepNumber={1} title="Property Address">
             <div className="grid grid-cols-12 gap-x-4 gap-y-5">
               <div className="col-span-12 lg:col-span-8">
-                <InputField
-                  label="Street Address"
-                  icon={<MdLocationOn />}
-                  required
-                >
-                  <TextInput
-                    required
-                    name="street_address"
-                    placeholder="123 Main St"
-                    value={formData.street_address}
-                    onChange={handleChange}
-                  />
+                <InputField label="Street Address" icon={<MdLocationOn />} required>
+                  <TextInput required placeholder="123 Main St" {...register("street_address")} />
                 </InputField>
                 <ErrorMessage error={getFieldError("street_address")} />
               </div>
               <div className="col-span-12 lg:col-span-4">
                 <InputField label="Unit/Apt" icon={<MdApartment />} required>
-                  <TextInput
-                    required
-                    name="unit_apt"
-                    placeholder="Apt 4B"
-                    value={formData.unit_apt}
-                    onChange={handleChange}
-                  />
+                  <TextInput required placeholder="Apt 4B" {...register("unit_apt")} />
                 </InputField>
                 <ErrorMessage error={getFieldError("unit_apt")} />
               </div>
 
               <div className="col-span-12 sm:col-span-6">
                 <InputField label="City" icon={<MdLocationOn />} required>
-                  <TextInput
-                    required
-                    name="city"
-                    placeholder="City"
-                    value={formData.city}
-                    onChange={handleChange}
-                  />
+                  <TextInput required placeholder="City" {...register("city")} />
                 </InputField>
                 <ErrorMessage error={getFieldError("city")} />
               </div>
               <div className="col-span-12 sm:col-span-6">
                 <InputField label="County" icon={<MdMap />} required>
-                  <TextInput
-                    required
-                    name="county"
-                    placeholder="County"
-                    value={formData.county}
-                    onChange={handleChange}
-                  />
+                  <TextInput required placeholder="County" {...register("county")} />
                 </InputField>
                 <ErrorMessage error={getFieldError("county")} />
               </div>
 
               <div className="col-span-6 sm:col-span-6">
                 <InputField label="State" icon={<MdPlace />} required>
-                  <TextInput
-                    required
-                    name="state"
-                    placeholder="State"
-                    value={formData.state}
-                    onChange={handleChange}
-                  />
+                  <TextInput required placeholder="State" {...register("state")} />
                 </InputField>
                 <ErrorMessage error={getFieldError("state")} />
               </div>
               <div className="col-span-6 sm:col-span-6">
                 <InputField label="Zip Code" icon={<MdPinDropIcon />} required>
-                  <TextInput
-                    required
-                    name="zip_code"
-                    placeholder="Zip"
-                    value={formData.zip_code}
-                    onChange={handleChange}
-                  />
+                  <TextInput required placeholder="Zip" {...register("zip_code")} />
                 </InputField>
                 <ErrorMessage error={getFieldError("zip_code")} />
               </div>
             </div>
           </SectionCard>
 
-          <SectionCard stepNumber={3} title="Property Specs">
+          <SectionCard stepNumber={2} title="Property Specs">
             <div className="grid grid-cols-12 gap-x-4 gap-y-5">
               <div className="col-span-12 sm:col-span-6">
                 <InputField label="Property Type" icon={<MdHome />} required>
-                  <SelectInput
-                    required
-                    name="property_type"
-                    value={formData.property_type}
-                    onChange={handleChange}
-                    options={propertyTypeOptions.map((opt) => opt.value)}
-                  />
+                  <SelectInput required {...register("property_type")} options={propertyTypeOptions.map((opt) => opt.value)} />
                 </InputField>
                 <ErrorMessage error={getFieldError("property_type")} />
               </div>
               <div className="col-span-12 sm:col-span-6">
-                <InputField
-                  label="Year Built"
-                  icon={<MdCalendarToday />}
-                  required
-                >
-                  <TextInput
-                    required
-                    type="number"
-                    name="year_built"
-                    placeholder="2020"
-                    value={formData.year_built}
-                    onChange={handleChange}
-                  />
+                <InputField label="Year Built" icon={<MdCalendarToday />} required>
+                  <TextInput required type="number" placeholder="2020" {...register("year_built")} />
                 </InputField>
                 <ErrorMessage error={getFieldError("year_built")} />
               </div>
               <div className="col-span-12 sm:col-span-4">
                 <InputField label="Lot Size" icon={<MdAspectRatio />} required>
-                  <TextInput
-                    required
-                    name="lot_size"
-                    placeholder="0.25 acres"
-                    value={formData.lot_size}
-                    onChange={handleChange}
-                  />
+                  <TextInput required placeholder="0.25 acres" {...register("lot_size")} />
                 </InputField>
                 <ErrorMessage error={getFieldError("lot_size")} />
               </div>
 
               <div className="col-span-12 sm:col-span-4">
                 <InputField label="Bedrooms" icon={<MdKingBed />} required>
-                  <TextInput
-                    required
-                    type="number"
-                    name="bedrooms"
-                    placeholder="3"
-                    value={formData.bedrooms}
-                    onChange={handleChange}
-                  />
+                  <TextInput required type="number" placeholder="3" {...register("bedrooms")} />
                 </InputField>
                 <ErrorMessage error={getFieldError("bedrooms")} />
               </div>
               <div className="col-span-12 sm:col-span-4">
                 <InputField label="Bathrooms" icon={<MdBathtub />} required>
-                  <TextInput
-                    required
-                    type="number"
-                    name="bathrooms"
-                    placeholder="2"
-                    value={formData.bathrooms}
-                    onChange={handleChange}
-                  />
+                  <TextInput required type="number" placeholder="2" {...register("bathrooms")} />
                 </InputField>
                 <ErrorMessage error={getFieldError("bathrooms")} />
               </div>
 
               <div className="col-span-12 sm:col-span-4">
-                <InputField
-                  label="Square Feet"
-                  icon={<MdSquareFoot />}
-                  required
-                >
-                  <TextInput
-                    required
-                    type="number"
-                    name="square_feet"
-                    placeholder="1500"
-                    value={formData.square_feet}
-                    onChange={handleChange}
-                  />
+                <InputField label="Square Feet" icon={<MdSquareFoot />} required>
+                  <TextInput required type="number" placeholder="1500" {...register("square_feet")} />
                 </InputField>
                 <ErrorMessage error={getFieldError("square_feet")} />
               </div>
 
               <div className="col-span-6 sm:col-span-4">
                 <InputField label="Garage" icon={<MdGarage />}>
-                  <TextInput
-                    required
-                    type="number"
-                    name="garage_spaces"
-                    placeholder="2"
-                    value={formData.garage_spaces}
-                    onChange={handleChange}
-                  />
+                  <TextInput required type="number" placeholder="2" {...register("garage_spaces")} />
                 </InputField>
                 <ErrorMessage error={getFieldError("garage_spaces")} />
               </div>
               <div className="col-span-6 sm:col-span-4">
                 <InputField label="Parking" icon={<MdDirectionsCar />}>
-                  <TextInput
-                    required
-                    type="number"
-                    name="parking_spaces"
-                    placeholder="4"
-                    value={formData.parking_spaces}
-                    onChange={handleChange}
-                  />
+                  <TextInput required type="number" placeholder="4" {...register("parking_spaces")} />
                 </InputField>
                 <ErrorMessage error={getFieldError("parking_spaces")} />
               </div>
@@ -477,58 +289,30 @@ export default function PropertyForm({
           </SectionCard>
         </div>
 
-
-
         {/* CONDITION & ADDITIONAL INFO */}
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
           <SectionCard
-            stepNumber={4}
+            stepNumber={3}
             title="Condition"
             bgColor="bg-orange-50"
             textColor="text-orange-600"
           >
             <div className="grid grid-cols-12 gap-x-4 gap-y-5 mb-5">
               <div className="col-span-12 sm:col-span-6">
-                <InputField
-                  label="Roof Age"
-                  required
-                  icon={<MdCalendarToday />}
-                >
-                  <TextInput
-                    required
-                    name="roof_age"
-                    placeholder="Yr"
-                    value={formData.roof_age}
-                    onChange={handleChange}
-                  />
+                <InputField label="Roof Age" required icon={<MdCalendarToday />}>
+                  <TextInput required placeholder="Yr" {...register("roof_age")} />
                 </InputField>
                 <ErrorMessage error={getFieldError("roof_age")} />
               </div>
               <div className="col-span-12 sm:col-span-6">
-                <InputField
-                  label="Roof Status"
-                  required
-                  icon={<MdConstruction />}
-                >
-                  <SelectInput
-                    required
-                    name="roof_status"
-                    value={formData.roof_status}
-                    onChange={handleChange}
-                    options={roofStatusOptions.map((opt) => opt.value)}
-                  />
+                <InputField label="Roof Status" required icon={<MdConstruction />}>
+                  <SelectInput required {...register("roof_status")} options={roofStatusOptions.map((opt) => opt.value)} />
                 </InputField>
                 <ErrorMessage error={getFieldError("roof_status")} />
               </div>
               <div className="col-span-12">
                 <InputField label="Interior Condition" icon={<MdBrush />}>
-                  <SelectInput
-                    required
-                    name="interior_condition"
-                    value={formData.interior_condition}
-                    onChange={handleChange}
-                    options={interiorConditionOptions.map((opt) => opt.value)}
-                  />
+                  <SelectInput required {...register("interior_condition")} options={interiorConditionOptions.map((opt) => opt.value)} />
                 </InputField>
                 <ErrorMessage error={getFieldError("interior_condition")} />
               </div>
@@ -541,19 +325,15 @@ export default function PropertyForm({
                     { name: "exterior_paint_required", label: "Ext. Paint" },
                     { name: "new_floor_required", label: "New Floors" },
                     { name: "kitchen_renovation_required", label: "Kitchen" },
-                    {
-                      name: "bathroom_renovation_required",
-                      label: "Bathrooms",
-                    },
+                    { name: "bathroom_renovation_required", label: "Bathrooms" },
                     { name: "drywall_repair_required", label: "Drywall" },
                     { name: "interior_paint_required", label: "Int. Paint" },
                   ].map((item) => (
                     <CheckboxButton
                       key={item.name}
-                      name={item.name}
                       label={item.label}
-                      checked={(formData as any)[item.name]}
-                      onChange={handleCheckboxChange}
+                      {...register(item.name as keyof PropertyFormData)}
+                      checked={!!watch(item.name as keyof PropertyFormData)}
                     />
                   ))}
                 </div>
@@ -562,7 +342,7 @@ export default function PropertyForm({
           </SectionCard>
 
           <SectionCard
-            stepNumber={5}
+            stepNumber={4}
             title="Additional Info"
             bgColor="bg-gray-100"
             textColor="text-gray-600"
@@ -570,25 +350,13 @@ export default function PropertyForm({
             <div className="flex flex-col gap-5 flex-1">
               <div className="flex-1">
                 <InputField label="Property Description">
-                  <TextArea
-                    name="property_description"
-                    placeholder="Description..."
-                    value={formData.property_description}
-                    onChange={handleChange}
-                    className="h-32"
-                  />
+                  <TextArea placeholder="Description..." {...register("property_description")} className="h-32" />
                 </InputField>
                 <ErrorMessage error={getFieldError("property_description")} />
               </div>
               <div className="flex-1">
                 <InputField label="Seller Notes (Private)">
-                  <TextArea
-                    name="seller_notes"
-                    placeholder="Notes..."
-                    value={formData.seller_notes}
-                    onChange={handleChange}
-                    className="h-24"
-                  />
+                  <TextArea placeholder="Notes..." {...register("seller_notes")} className="h-24" />
                 </InputField>
                 <ErrorMessage error={getFieldError("seller_notes")} />
               </div>
@@ -598,15 +366,14 @@ export default function PropertyForm({
 
         {/* FINANCIALS (FULL WIDTH) */}
         <SectionCard
-          stepNumber={6}
+          stepNumber={5}
           title="Financials"
           bgColor="bg-emerald-50"
           textColor="text-emerald-600"
         >
           <div className="grid grid-cols-12 gap-x-4 gap-y-5">
-
             {/* SALE FIELDS */}
-            {(formData.listing_type === "Sale" || formData.listing_type === "Both") && (
+            {(listingType === "Sale" || listingType === "Both") && (
               <>
                 <div className="col-span-12">
                   <h4 className="font-bold text-gray-700 border-b border-gray-200 pb-2 mb-2 flex items-center gap-2">
@@ -614,81 +381,34 @@ export default function PropertyForm({
                   </h4>
                 </div>
                 <div className="col-span-12 sm:col-span-6 lg:col-span-3">
-                  <InputField
-                    label="Listing Price"
-                    icon={<span className="font-bold">$</span>}
-                    required
-                  >
-                    <TextInput
-                      required
-                      type="number"
-                      name="listing_price"
-                      placeholder="0"
-                      value={formData.listing_price}
-                      onChange={handleChange}
-                      style={{ fontWeight: "bold" }}
-                    />
+                  <InputField label="Listing Price" icon={<span className="font-bold">$</span>} required>
+                    <TextInput required type="number" placeholder="0" {...register("listing_price")} style={{ fontWeight: "bold" }} />
                   </InputField>
                   <ErrorMessage error={getFieldError("listing_price")} />
                 </div>
                 <div className="col-span-12 sm:col-span-6 lg:col-span-3">
-                  <InputField
-                    label="Asking Price"
-                    icon={<span className="font-bold">$</span>}
-                    required
-                  >
-                    <TextInput
-                      required
-                      type="number"
-                      name="asking_price"
-                      placeholder="0"
-                      value={formData.asking_price}
-                      onChange={handleChange}
-                      style={{ fontWeight: "bold" }}
-                    />
+                  <InputField label="Asking Price" icon={<span className="font-bold">$</span>} required>
+                    <TextInput required type="number" placeholder="0" {...register("asking_price")} style={{ fontWeight: "bold" }} />
                   </InputField>
                   <ErrorMessage error={getFieldError("asking_price")} />
                 </div>
 
                 <div className="col-span-12 sm:col-span-6 lg:col-span-3">
-                  <InputField
-                    label="Transaction Type"
-                    icon={<MdRealEstateAgent />}
-                    required
-                  >
-                    <SelectInput
-                      required
-                      name="transaction_type"
-                      value={formData.transaction_type}
-                      onChange={handleChange}
-                      options={transactionTypeOptions.map((opt) => opt.value)}
-                    />
+                  <InputField label="Transaction Type" icon={<MdRealEstateAgent />} required>
+                    <SelectInput required {...register("transaction_type")} options={transactionTypeOptions.map((opt) => opt.value)} />
                   </InputField>
                   <ErrorMessage error={getFieldError("transaction_type")} />
                 </div>
-
-
 
                 {[
                   { n: "arv", l: "ARV", i: <MdLocalOffer /> },
                   { n: "repair_estimate", l: "Repair Estimate", i: <MdBuild /> },
                   { n: "holding_costs", l: "Holding Costs", i: <MdMoneyOff /> },
-                  {
-                    n: "assignment_fee",
-                    l: "Assignment Fee",
-                    i: <MdAttachMoney />,
-                  },
+                  { n: "assignment_fee", l: "Assignment Fee", i: <MdAttachMoney /> },
                 ].map((f) => (
                   <div key={f.n} className="col-span-12 sm:col-span-6 lg:col-span-3">
                     <InputField label={f.l} icon={f.i} required>
-                      <TextInput
-                        required
-                        type="number"
-                        name={f.n}
-                        placeholder="0"
-                        value={(formData as any)[f.n]}
-                        onChange={handleChange}
-                      />
+                      <TextInput required type="number" placeholder="0" {...register(f.n as any)} />
                     </InputField>
                     <ErrorMessage error={getFieldError(f.n)} />
                   </div>
@@ -696,236 +416,13 @@ export default function PropertyForm({
               </>
             )}
 
-            {/* RENT FIELDS */}
-            {(formData.listing_type === "Rent" || formData.listing_type === "Both") && (
-              <>
-                {(formData.listing_type === "Both") && <div className="col-span-12 my-2"></div>}
-                <div className="col-span-12">
-                  <h4 className="font-bold text-gray-700 border-b border-gray-200 pb-2 mb-2 flex items-center gap-2">
-                    For Rent Details
-                  </h4>
-                </div>
-
-                <div className="col-span-12 sm:col-span-6 lg:col-span-3">
-                  <InputField
-                    label="Rent Price"
-                    icon={<span className="font-bold">$</span>}
-                    required
-                  >
-                    <TextInput
-                      required
-                      type="number"
-                      name="rent_price"
-                      placeholder="0"
-                      value={formData.rent_price}
-                      onChange={handleChange}
-                      style={{ fontWeight: "bold" }}
-                    />
-                  </InputField>
-                  <ErrorMessage error={getFieldError("rent_price")} />
-                </div>
-
-                <div className="col-span-12 sm:col-span-6 lg:col-span-3">
-                  <InputField
-                    label="Rent Frequency"
-                    icon={<MdCalendarToday />}
-                    required
-                  >
-                    <SelectInput
-                      required
-                      name="rent_frequency"
-                      value={formData.rent_frequency}
-                      onChange={handleChange}
-                      options={rentFrequencyOptions.map((opt) => opt.value)}
-                    />
-                  </InputField>
-                  <ErrorMessage error={getFieldError("rent_frequency")} />
-                </div>
-
-                <div className="col-span-12 sm:col-span-6 lg:col-span-3">
-                  <InputField
-                    label="Security Deposit"
-                    icon={<MdAttachMoney />}
-                  >
-                    <TextInput
-                      type="number"
-                      name="security_deposit"
-                      placeholder="0"
-                      value={formData.security_deposit}
-                      onChange={handleChange}
-                    />
-                  </InputField>
-                  <ErrorMessage error={getFieldError("security_deposit")} />
-                </div>
-
-                <div className="col-span-12 sm:col-span-6 lg:col-span-3">
-                  <InputField
-                    label="Lease Duration (Months)"
-                    icon={<MdCalendarToday />}
-                  >
-                    <TextInput
-                      type="number"
-                      name="lease_duration"
-                      placeholder="12"
-                      value={formData.lease_duration}
-                      onChange={handleChange}
-                    />
-                  </InputField>
-                  <ErrorMessage error={getFieldError("lease_duration")} />
-                </div>
-
-                <div className="col-span-12 sm:col-span-6 lg:col-span-3">
-                  <InputField
-                    label="Available From"
-                    icon={<MdCalendarToday />}
-                    required
-                  >
-                    <TextInput
-                      type="date"
-                      name="available_from"
-                      required
-                      value={formData.available_from}
-                      onChange={handleChange}
-                    />
-                  </InputField>
-                  <ErrorMessage error={getFieldError("available_from")} />
-                </div>
-
-                <div className="col-span-12 sm:col-span-6 lg:col-span-6 flex flex-col sm:flex-row gap-6 mt-2 items-center">
-                  <CheckboxButton
-                    name="is_furnished"
-                    label="Furnished"
-                    checked={!!formData.is_furnished}
-                    onChange={handleCheckboxChange}
-                    className="w-full"
-                  />
-                  <CheckboxButton
-                    name="pets_allowed"
-                    label="Pets Allowed"
-                    checked={!!formData.pets_allowed}
-                    onChange={handleCheckboxChange}
-                    className="w-full"
-                  />
-                </div>
-                <div className="col-span-12 sm:col-span-6 lg:col-span-3">
-                  <InputField
-                    label="Smoking Policy"
-                    icon={<MdMoneyOff />}
-                    required
-                  >
-                    <SelectInput
-                      name="smoking_policy"
-                      value={formData.smoking_policy}
-                      onChange={handleChange}
-                      options={smokingPolicyOptions.map((opt) => opt.value)}
-                    />
-                  </InputField>
-                  <ErrorMessage error={getFieldError("smoking_policy")} />
-                </div>
-
-                <div className="col-span-12 sm:col-span-6 lg:col-span-3">
-                  <InputField
-                    label="Application Fee"
-                    icon={<MdAttachMoney />}
-                  >
-                    <TextInput
-                      type="number"
-                      name="application_fee"
-                      placeholder="0"
-                      value={formData.application_fee}
-                      onChange={handleChange}
-                    />
-                  </InputField>
-                  <ErrorMessage error={getFieldError("application_fee")} />
-                </div>
-
-                <div className="col-span-12 sm:col-span-6 lg:col-span-3">
-                  <InputField
-                    label="Move-in Fees"
-                    icon={<MdAttachMoney />}
-                  >
-                    <TextInput
-                      type="number"
-                      name="move_in_fees"
-                      placeholder="0"
-                      value={formData.move_in_fees}
-                      onChange={handleChange}
-                    />
-                  </InputField>
-                  <ErrorMessage error={getFieldError("move_in_fees")} />
-                </div>
-
-                <div className="col-span-12">
-                  <h4 className="font-bold text-gray-700 border-b border-gray-200 pb-2 my-4 flex items-center gap-2">
-                    Utilities Included
-                  </h4>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    {utilityOptions.map((utility) => (
-                      <CheckboxButton
-                        key={utility}
-                        name="utilities_included"
-                        label={utility}
-                        checked={formData.utilities_included?.includes(utility) || false}
-                        onChange={(e) => {
-                          const checked = e.target.checked;
-                          const current = formData.utilities_included || [];
-                          if (checked) {
-                            setFormData((prev) => ({
-                              ...prev,
-                              utilities_included: [...current, utility],
-                            }));
-                          } else {
-                            setFormData((prev) => ({
-                              ...prev,
-                              utilities_included: current.filter((u) => u !== utility),
-                            }));
-                          }
-                        }}
-                      />
-                    ))}
-                  </div>
-                </div>
-
-                <div className="col-span-12">
-                  <h4 className="font-bold text-gray-700 border-b border-gray-200 pb-2 my-4 flex items-center gap-2">
-                    Amenities & Facilities
-                  </h4>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    {amenityOptions.map((amenity) => (
-                      <CheckboxButton
-                        key={amenity}
-                        name="amenities"
-                        label={amenity}
-                        checked={formData.amenities?.includes(amenity) || false}
-                        onChange={(e) => {
-                          const checked = e.target.checked;
-                          const current = formData.amenities || [];
-                          if (checked) {
-                            setFormData((prev) => ({
-                              ...prev,
-                              amenities: [...current, amenity],
-                            }));
-                          } else {
-                            setFormData((prev) => ({
-                              ...prev,
-                              amenities: current.filter((u) => u !== amenity),
-                            }));
-                          }
-                        }}
-                      />
-                    ))}
-                  </div>
-                </div>
-
-              </>
-            )}
 
           </div>
         </SectionCard>
 
         {/* IMAGES */}
         <SectionCard
-          stepNumber={7}
+          stepNumber={6}
           title="Property Images"
           bgColor="bg-indigo-50"
           textColor="text-indigo-600"
@@ -933,20 +430,30 @@ export default function PropertyForm({
           <FileUpload
             id="file-upload-smart"
             onChange={handleFileChange}
-            fileCount={
-              formData.images && Array.isArray(formData.images)
-                ? formData.images.length
-                : 0
-            }
+            fileCount={formDataImages && Array.isArray(formDataImages) ? formDataImages.length : 0}
           />
-          {isEditMode &&
-            (!formData.images || formData.images.length === 0) && (
-              <p className="mt-2 text-sm text-gray-500">
-                No new images selected. Existing images will be preserved.
-              </p>
-            )}
+          {isEditMode && (!formDataImages || formDataImages.length === 0) && (
+            <p className="mt-2 text-sm text-gray-500">
+              No new images selected. Existing images will be preserved.
+            </p>
+          )}
           <ErrorMessage error={getFieldError("images")} />
         </SectionCard>
+
+        {/* BOTTOM ACTION BUTTONS */}
+        <div className="flex justify-end gap-3 pt-2">
+          <Button variant="secondary" onClick={() => router.push(backUrl)}>
+            Cancel
+          </Button>
+          <Button
+             variant="primary"
+              onClick={handleSubmit}
+              icon={<MdSave size={18} />}
+              disabled={loading}
+            >
+              {loading ? "Saving..." : isEditMode ? "Update Property" : "Save Property"}
+          </Button>
+        </div>
       </form>
     </div>
   );

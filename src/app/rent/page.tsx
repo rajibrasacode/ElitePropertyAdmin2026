@@ -38,6 +38,11 @@ export default function RentPropertiesPage() {
 
     const [allProperties, setAllProperties] = useState<PropertyData[]>([]);
     const [properties, setProperties] = useState<PropertyData[]>([]);
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
     const [activeTab, setActiveTab] = useState<'all' | 'pending'>('all'); // Tab State
     const [loading, setLoading] = useState(true);
     const [showFilters, setShowFilters] = useState(false);
@@ -188,55 +193,55 @@ export default function RentPropertiesPage() {
 
     useEffect(() => {
         try {
-                const tabFiltered = activeTab === "pending"
-                    ? allProperties.filter((p) => p.status === "Pending")
-                    : allProperties.filter((p) => p.status !== "Pending");
+            const tabFiltered = activeTab === "pending"
+                ? allProperties.filter((p) => p.status === "Pending")
+                : allProperties.filter((p) => p.status !== "Pending");
 
-                const filtered = tabFiltered.filter((property) => {
-                    const effectivePrice = property.rent_price || property.listing_price || 0;
-                    const status = property.status || "Active";
-                    const listingType = property.transaction_type || property.listing_type || "Rent";
-                    const propType = property.property_type || "Single-Family";
-                    const title = property.street_address || "Untitled Property";
-                    const location = `${property.city}, ${property.state}`;
+            const filtered = tabFiltered.filter((property) => {
+                const effectivePrice = property.rent_price || property.listing_price || 0;
+                const status = property.status || "Active";
+                const listingType = property.transaction_type || property.listing_type || "Rent";
+                const propType = property.property_type || "Single-Family";
+                const title = property.street_address || "Untitled Property";
+                const location = `${property.city}, ${property.state}`;
 
 
-                    const matchesStatus = filterStatus === "All" || status === filterStatus;
-                    // We specifically check if it includes 'Rent' or 'Both'
-                    const matchesListingType = filterListingType === "All" || listingType === filterListingType || listingType === "Both";
-                    const matchesPropertyType = filterPropertyType === "All" || propType === filterPropertyType;
-                    const matchesSearch = title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                        location.toLowerCase().includes(searchQuery.toLowerCase());
-                    const matchesMinPrice = minPrice === "" || effectivePrice >= parseInt(minPrice);
-                    const matchesMaxPrice = maxPrice === "" || effectivePrice <= parseInt(maxPrice);
-                    const matchesBeds = beds === "" || (property.bedrooms || 0) >= parseInt(beds);
-                    const matchesBaths = baths === "" || (property.bathrooms || 0) >= parseInt(baths);
-                    const matchesPets = petsAllowed === "All" ||
-                        (petsAllowed === "Yes" ? property.pets_allowed === true : property.pets_allowed === false);
-                    const matchesFurnished = furnished === "All" ||
-                        (furnished === "Yes" ? property.is_furnished === true : property.is_furnished === false);
+                const matchesStatus = filterStatus === "All" || status === filterStatus;
+                // We specifically check if it includes 'Rent' or 'Both'
+                const matchesListingType = filterListingType === "All" || listingType === filterListingType || listingType === "Both";
+                const matchesPropertyType = filterPropertyType === "All" || propType === filterPropertyType;
+                const matchesSearch = title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                    location.toLowerCase().includes(searchQuery.toLowerCase());
+                const matchesMinPrice = minPrice === "" || effectivePrice >= parseInt(minPrice);
+                const matchesMaxPrice = maxPrice === "" || effectivePrice <= parseInt(maxPrice);
+                const matchesBeds = beds === "" || (property.bedrooms || 0) >= parseInt(beds);
+                const matchesBaths = baths === "" || (property.bathrooms || 0) >= parseInt(baths);
+                const matchesPets = petsAllowed === "All" ||
+                    (petsAllowed === "Yes" ? property.pets_allowed === true : property.pets_allowed === false);
+                const matchesFurnished = furnished === "All" ||
+                    (furnished === "Yes" ? property.is_furnished === true : property.is_furnished === false);
 
-                    return matchesStatus && matchesListingType && matchesPropertyType && matchesSearch &&
-                        matchesMinPrice && matchesMaxPrice && matchesBeds && matchesBaths && matchesPets && matchesFurnished;
-                });
+                return matchesStatus && matchesListingType && matchesPropertyType && matchesSearch &&
+                    matchesMinPrice && matchesMaxPrice && matchesBeds && matchesBaths && matchesPets && matchesFurnished;
+            });
 
-                const total = filtered.length;
-                const totalPages = Math.max(1, Math.ceil(total / pagination.limit));
-                const safePage = Math.min(pagination.page, totalPages);
-                const startIndex = (safePage - 1) * pagination.limit;
-                const paginatedDocs = filtered.slice(startIndex, startIndex + pagination.limit);
+            const total = filtered.length;
+            const totalPages = Math.max(1, Math.ceil(total / pagination.limit));
+            const safePage = Math.min(pagination.page, totalPages);
+            const startIndex = (safePage - 1) * pagination.limit;
+            const paginatedDocs = filtered.slice(startIndex, startIndex + pagination.limit);
 
-                setProperties(paginatedDocs);
-                setPagination(prev => ({
-                    ...prev,
-                    page: safePage,
-                    total: total,
-                    totalPages: totalPages
-                }));
-            } catch (err) {
-                console.error("Failed to filter properties", err);
-                setError("Failed to load data.");
-            }
+            setProperties(paginatedDocs);
+            setPagination(prev => ({
+                ...prev,
+                page: safePage,
+                total: total,
+                totalPages: totalPages
+            }));
+        } catch (err) {
+            console.error("Failed to filter properties", err);
+            setError("Failed to load data.");
+        }
     }, [allProperties, pagination.page, searchQuery, filterListingType, activeTab,
         filterStatus,
         filterPropertyType,
@@ -469,8 +474,8 @@ export default function RentPropertiesPage() {
                             <MdFilterList size={18} />
                             Filter
                         </button>
-                        {canAddProperties && (
-                            <Link href="/properties/rent/add" className="flex-1 sm:flex-none">
+                        {mounted && canAddProperties && (
+                            <Link href="/rent/add" className="flex-1 sm:flex-none">
                                 <button
                                     className="w-full px-5 py-2.5 text-white rounded-lg shadow-sm hover:brightness-110 transition-all font-bold text-sm flex items-center justify-center gap-2 whitespace-nowrap"
                                     style={{ backgroundColor: currentTheme.primary }}
@@ -641,7 +646,7 @@ export default function RentPropertiesPage() {
                 ) : properties.length > 0 ? (
                     properties.map((property) => (
                         <div
-                            onClick={() => router.push(`/properties/rent/review/${property.id}`)}
+                            onClick={() => router.push(`/rent/review/${property.id}`)}
                             key={property.id}
                             className="rounded-2xl border overflow-hidden hover:shadow-lg transition-all duration-300 group cursor-pointer backdrop-blur-md"
                             style={{
@@ -725,123 +730,123 @@ export default function RentPropertiesPage() {
                                 </div>
 
                                 {/* Card Footer: Agent & Actions */}
-                            <div className=" pt-4 border-t flex items-center justify-between" style={{ borderColor: currentTheme.borderColor }}>
-                                <div className="flex items-center gap-2">
+                                <div className=" pt-4 border-t flex items-center justify-between" style={{ borderColor: currentTheme.borderColor }}>
+                                    <div className="flex items-center gap-2">
+                                        <div className="relative">
+                                            {creatorOverrides[String(property.id)]?.profileImage ? (
+                                                <img
+                                                    src={creatorOverrides[String(property.id)]?.profileImage}
+                                                    alt={creatorOverrides[String(property.id)]?.fullName || "Creator"}
+                                                    className="w-6 h-6 rounded-full object-cover"
+                                                />
+                                            ) : (
+                                                <div className="w-6 h-6 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center text-[10px] font-bold">
+                                                    {(creatorOverrides[String(property.id)]?.fullName || "A").slice(0, 1).toUpperCase()}
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div>
+                                            <p className="text-[10px] uppercase font-bold tracking-wider opacity-60 line-clamp-1" style={{ color: currentTheme.textColor }}>
+                                                {creatorOverrides[String(property.id)]?.fullName || "N/A"}
+                                            </p>
+                                            <p className="text-[10px] opacity-70 line-clamp-1" style={{ color: currentTheme.textColor }}>
+                                                {creatorOverrides[String(property.id)]?.email || "No email"}
+                                            </p>
+                                        </div>
+                                    </div>
                                     <div className="relative">
-                                        {creatorOverrides[String(property.id)]?.profileImage ? (
-                                            <img
-                                                src={creatorOverrides[String(property.id)]?.profileImage}
-                                                alt={creatorOverrides[String(property.id)]?.fullName || "Creator"}
-                                                className="w-6 h-6 rounded-full object-cover"
-                                            />
-                                        ) : (
-                                            <div className="w-6 h-6 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center text-[10px] font-bold">
-                                                {(creatorOverrides[String(property.id)]?.fullName || "A").slice(0, 1).toUpperCase()}
+                                        {(canViewProperties || canEditProperties || canDeleteProperties) && (
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setActiveMenuId(activeMenuId === property.id ? null : property.id);
+                                                }}
+                                                className="hover:opacity-80 p-1 rounded-full hover:bg-black/5 transition-colors"
+                                                style={{ color: currentTheme.textColor }}
+                                            >
+                                                <MdMoreHoriz size={20} />
+                                            </button>
+                                        )}
+
+                                        {/* Dropdown Menu */}
+                                        {activeMenuId === property.id && (
+                                            <div
+                                                className="absolute bottom-full right-0 mb-2 w-48 rounded-xl shadow-xl border overflow-hidden z-20 animate-in fade-in slide-in-from-bottom-2"
+                                                style={{
+                                                    backgroundColor: currentTheme.cardBg,
+                                                    borderColor: currentTheme.borderColor
+                                                }}
+                                                onClick={(e) => e.stopPropagation()}
+                                            >
+                                                <div className="flex flex-col py-1">
+                                                    {canViewProperties && (
+                                                        <button
+                                                            onClick={() => router.push(`/rent/review/${property.id}`)}
+                                                            className="w-full px-4 py-2.5 text-left text-sm font-semibold hover:bg-black/5 transition-colors flex items-center gap-2"
+                                                            style={{ color: currentTheme.headingColor }}
+                                                        >
+                                                            Review Property
+                                                        </button>
+                                                    )}
+                                                    {canEditProperties && (
+                                                        <button
+                                                            onClick={() => router.push(`/rent/edit/${property.id}`)}
+                                                            className="w-full px-4 py-2.5 text-left text-sm font-semibold hover:bg-black/5 transition-colors flex items-center gap-2"
+                                                            style={{ color: currentTheme.headingColor }}
+                                                        >
+                                                            Edit Property
+                                                        </button>
+                                                    )}
+
+                                                    {canEditProperties && (
+                                                        activeTab === 'all' ? (
+                                                            <button
+                                                                onClick={() => handleToggleRentalStatus(property)}
+                                                                className="px-4 py-2.5 text-left text-sm font-semibold text-amber-600 hover:bg-amber-50 transition-colors flex items-center gap-2"
+                                                            >
+                                                                {property.status === "Inactive" ? "Activate" : "Deactivate"}
+                                                            </button>
+                                                        ) : (
+                                                            <button
+                                                                onClick={(e) => { e.stopPropagation(); onApproveClick(property.id); }}
+                                                                className="px-4 py-2.5 text-left text-sm font-semibold text-emerald-600 hover:bg-emerald-50 transition-colors flex items-center gap-2"
+                                                            >
+                                                                Approve
+                                                            </button>
+                                                        )
+                                                    )}
+
+                                                    {(canDeleteProperties || (canEditProperties && activeTab !== 'all')) && (
+                                                        <div className="h-px bg-black/5 my-1" style={{ backgroundColor: currentTheme.borderColor }}></div>
+                                                    )}
+
+                                                    {activeTab === 'all' ? (
+                                                        canDeleteProperties && (
+                                                            <button
+                                                                onClick={() => initiateDelete(property.id)}
+                                                                className="px-4 py-2.5 text-left text-sm font-semibold text-rose-500 hover:bg-rose-50 transition-colors flex items-center gap-2"
+                                                            >
+                                                                Delete Property
+                                                            </button>
+                                                        )
+                                                    ) : (
+                                                        canEditProperties && (
+                                                            <button
+                                                                onClick={(e) => { e.stopPropagation(); onRejectClick(property.id); }}
+                                                                className="px-4 py-2.5 text-left text-sm font-semibold text-rose-600 hover:bg-rose-50 transition-colors flex items-center gap-2"
+                                                            >
+                                                                Reject Property
+                                                            </button>
+                                                        )
+                                                    )}
+                                                </div>
                                             </div>
                                         )}
                                     </div>
-                                    <div>
-                                        <p className="text-[10px] uppercase font-bold tracking-wider opacity-60 line-clamp-1" style={{ color: currentTheme.textColor }}>
-                                            {creatorOverrides[String(property.id)]?.fullName || "N/A"}
-                                        </p>
-                                        <p className="text-[10px] opacity-70 line-clamp-1" style={{ color: currentTheme.textColor }}>
-                                            {creatorOverrides[String(property.id)]?.email || "No email"}
-                                        </p>
-                                    </div>
-                                </div>
-                                <div className="relative">
-                                    {(canViewProperties || canEditProperties || canDeleteProperties) && (
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                setActiveMenuId(activeMenuId === property.id ? null : property.id);
-                                            }}
-                                            className="hover:opacity-80 p-1 rounded-full hover:bg-black/5 transition-colors"
-                                            style={{ color: currentTheme.textColor }}
-                                        >
-                                            <MdMoreHoriz size={20} />
-                                        </button>
-                                    )}
-
-                                    {/* Dropdown Menu */}
-                                    {activeMenuId === property.id && (
-                                        <div
-                                            className="absolute bottom-full right-0 mb-2 w-48 rounded-xl shadow-xl border overflow-hidden z-20 animate-in fade-in slide-in-from-bottom-2"
-                                            style={{
-                                                backgroundColor: currentTheme.cardBg,
-                                                borderColor: currentTheme.borderColor
-                                            }}
-                                            onClick={(e) => e.stopPropagation()}
-                                        >
-                                            <div className="flex flex-col py-1">
-                                                {canViewProperties && (
-                                                    <button
-                                                        onClick={() => router.push(`/properties/rent/review/${property.id}`)}
-                                                        className="w-full px-4 py-2.5 text-left text-sm font-semibold hover:bg-black/5 transition-colors flex items-center gap-2"
-                                                        style={{ color: currentTheme.headingColor }}
-                                                    >
-                                                        Review Property
-                                                    </button>
-                                                )}
-                                                {canEditProperties && (
-                                                    <button
-                                                        onClick={() => router.push(`/properties/rent/edit/${property.id}`)}
-                                                        className="w-full px-4 py-2.5 text-left text-sm font-semibold hover:bg-black/5 transition-colors flex items-center gap-2"
-                                                        style={{ color: currentTheme.headingColor }}
-                                                    >
-                                                        Edit Property
-                                                    </button>
-                                                )}
-
-                                                {canEditProperties && (
-                                                    activeTab === 'all' ? (
-                                                        <button
-                                                            onClick={() => handleToggleRentalStatus(property)}
-                                                            className="px-4 py-2.5 text-left text-sm font-semibold text-amber-600 hover:bg-amber-50 transition-colors flex items-center gap-2"
-                                                        >
-                                                            {property.status === "Inactive" ? "Activate" : "Deactivate"}
-                                                        </button>
-                                                    ) : (
-                                                        <button
-                                                            onClick={(e) => { e.stopPropagation(); onApproveClick(property.id); }}
-                                                            className="px-4 py-2.5 text-left text-sm font-semibold text-emerald-600 hover:bg-emerald-50 transition-colors flex items-center gap-2"
-                                                        >
-                                                            Approve
-                                                        </button>
-                                                    )
-                                                )}
-
-                                                {(canDeleteProperties || (canEditProperties && activeTab !== 'all')) && (
-                                                    <div className="h-px bg-black/5 my-1" style={{ backgroundColor: currentTheme.borderColor }}></div>
-                                                )}
-
-                                                {activeTab === 'all' ? (
-                                                    canDeleteProperties && (
-                                                        <button
-                                                            onClick={() => initiateDelete(property.id)}
-                                                            className="px-4 py-2.5 text-left text-sm font-semibold text-rose-500 hover:bg-rose-50 transition-colors flex items-center gap-2"
-                                                        >
-                                                            Delete Property
-                                                        </button>
-                                                    )
-                                                ) : (
-                                                    canEditProperties && (
-                                                        <button
-                                                            onClick={(e) => { e.stopPropagation(); onRejectClick(property.id); }}
-                                                            className="px-4 py-2.5 text-left text-sm font-semibold text-rose-600 hover:bg-rose-50 transition-colors flex items-center gap-2"
-                                                        >
-                                                            Reject Property
-                                                        </button>
-                                                    )
-                                                )}
-                                            </div>
-                                        </div>
-                                    )}
                                 </div>
                             </div>
-                            </div>
 
-                            
+
                         </div>
                     ))
                 ) : (

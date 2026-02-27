@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo } from "react";
 import { useRouter } from "next/navigation";
-import PropertyForm from "@/components/common/Propertiesform";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import RentForm from "@/components/common/Rentform";
 import { createRentalService } from "@/services/rentals.service";
 import { getInitialFormData } from "@/utils/propertyFormUtils";
 import { mapPropertyFormToRentalPayload } from "@/utils/rentalMapper";
@@ -19,22 +20,31 @@ const getErrorMessage = (error: unknown, fallback: string) => {
 
 export default function AddRentPage() {
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
+  const queryClient = useQueryClient();
   const initialData = useMemo(() => ({ ...getInitialFormData(), listing_type: "Rent" as const }), []);
 
-  const handleSubmit = async (formData: FormData) => {
-    setLoading(true);
-    try {
+  const { mutate: addRental, isPending } = useMutation({
+    mutationFn: (formData: FormData) => {
       const rentalPayload = mapPropertyFormToRentalPayload(formData);
-      const response = await createRentalService(rentalPayload);
+      return createRentalService(rentalPayload);
+    },
+    onSuccess: (response) => {
       showSuccessToast(response?.message || "Rental created successfully.");
-      router.replace("/properties/rent");
-    } catch (error: unknown) {
+      queryClient.invalidateQueries({ queryKey: ["rentals"] });
+      router.replace("/rent");
+    },
+    onError: (error: unknown) => {
       showErrorToast(getErrorMessage(error, "Failed to create rental."));
-    } finally {
-      setLoading(false);
     }
-  };
+  });
 
-  return <PropertyForm mode="add" initialData={initialData} onSubmit={handleSubmit} loading={loading} backUrl="/properties/rent" />;
+  return (
+    <RentForm
+      mode="add"
+      initialData={initialData}
+      onSubmit={(formData) => addRental(formData)}
+      loading={isPending}
+      backUrl="/rent"
+    />
+  );
 }
