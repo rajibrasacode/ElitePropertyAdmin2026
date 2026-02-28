@@ -9,9 +9,12 @@ import { PropertyData } from "@/types/properties.types";
 import { ConfirmModal } from "@/components/common/ConfirmModal";
 import { showSuccessToast, showErrorToast } from "@/utils/toast";
 import { useModulePermission } from "@/hooks/useModulePermission";
+import { useAuth } from "@/providers/AuthProvider";
+import { isEnterpriseAdmin, isSuperAdmin } from "@/utils/authUtils";
 
 export default function PropertiesPage() {
     const { currentTheme } = useTheme();
+    const { user } = useAuth();
     const router = useRouter();
     const { permissionReady, can } = useModulePermission("properties");
     const canViewProperties = can("view");
@@ -58,6 +61,13 @@ export default function PropertiesPage() {
     const [pendingPropertyId, setPendingPropertyId] = useState<number | string | null>(null);
     const [actionLoading, setActionLoading] = useState(false);
     const [refreshKey, setRefreshKey] = useState(0); // To trigger re-fetch
+    const isOrganizationUser = isEnterpriseAdmin(user) && !isSuperAdmin(user);
+
+    useEffect(() => {
+        if (isOrganizationUser && activeTab !== "all") {
+            setActiveTab("all");
+        }
+    }, [isOrganizationUser, activeTab]);
 
     // Open Modal Handlers
     const onApproveClick = (id: number | string) => {
@@ -302,28 +312,30 @@ export default function PropertiesPage() {
                     <p className="font-medium text-sm" style={{ color: currentTheme.textColor }}>Manage all properties displayed on the user site.</p>
 
                     {/* Tabs */}
-                    <div className="flex items-center gap-1 mt-4 p-1 rounded-lg border w-fit" style={{ borderColor: currentTheme.borderColor, backgroundColor: currentTheme.cardBg }}>
-                        <button
-                            onClick={() => { setActiveTab('all'); setPagination(p => ({ ...p, page: 1 })); }}
-                            className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${activeTab === 'all' ? 'shadow-sm' : 'hover:bg-black/5 opacity-60'}`}
-                            style={{
-                                backgroundColor: activeTab === 'all' ? currentTheme.primary : 'transparent',
-                                color: activeTab === 'all' ? '#fff' : currentTheme.textColor
-                            }}
-                        >
-                            Active Listings
-                        </button>
-                        <button
-                            onClick={() => { setActiveTab('pending'); setPagination(p => ({ ...p, page: 1 })); }}
-                            className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${activeTab === 'pending' ? 'shadow-sm' : 'hover:bg-black/5 opacity-60'}`}
-                            style={{
-                                backgroundColor: activeTab === 'pending' ? currentTheme.primary : 'transparent',
-                                color: activeTab === 'pending' ? '#fff' : currentTheme.textColor
-                            }}
-                        >
-                            Pending Approval
-                        </button>
-                    </div>
+                    {!isOrganizationUser && (
+                        <div className="flex items-center gap-1 mt-4 p-1 rounded-lg border w-fit" style={{ borderColor: currentTheme.borderColor, backgroundColor: currentTheme.cardBg }}>
+                            <button
+                                onClick={() => { setActiveTab('all'); setPagination(p => ({ ...p, page: 1 })); }}
+                                className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${activeTab === 'all' ? 'shadow-sm' : 'hover:bg-black/5 opacity-60'}`}
+                                style={{
+                                    backgroundColor: activeTab === 'all' ? currentTheme.primary : 'transparent',
+                                    color: activeTab === 'all' ? '#fff' : currentTheme.textColor
+                                }}
+                            >
+                                Active Listings
+                            </button>
+                            <button
+                                onClick={() => { setActiveTab('pending'); setPagination(p => ({ ...p, page: 1 })); }}
+                                className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${activeTab === 'pending' ? 'shadow-sm' : 'hover:bg-black/5 opacity-60'}`}
+                                style={{
+                                    backgroundColor: activeTab === 'pending' ? currentTheme.primary : 'transparent',
+                                    color: activeTab === 'pending' ? '#fff' : currentTheme.textColor
+                                }}
+                            >
+                                Pending Approval
+                            </button>
+                        </div>
+                    )}
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">

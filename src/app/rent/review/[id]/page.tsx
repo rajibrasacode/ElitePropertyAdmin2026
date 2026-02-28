@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { MdOutlineBedroomParent, MdOutlineBathroom, MdSquareFoot, MdLocationOn, MdArrowBack, MdCheckCircle, MdCalendarToday, MdHouse, MdConstruction, MdAirlineSeatReclineNormal, MdPets, MdAttachMoney, MdSmokeFree, MdWater, MdPool, MdLocalParking, MdWifi, MdSecurity, MdFitnessCenter, MdElevator, MdBalcony, MdKitchen, MdAcUnit, MdLocalLaundryService, MdCheck, MdClose } from "react-icons/md";
 import { useTheme } from "@/providers/ThemeProvider";
 import Link from "next/link";
@@ -40,16 +40,24 @@ export default function RentReviewPropertyPage() {
     const [pendingAction, setPendingAction] = useState<'approve' | 'reject' | null>(null);
     const [actionLoading, setActionLoading] = useState(false);
     const [creator, setCreator] = useState<CreatorInfo | null>(null);
+    const [failedImageMap, setFailedImageMap] = useState<Record<string, boolean>>({});
+    const fetchedRentalIdRef = useRef<string | null>(null);
 
     useEffect(() => {
+        const rawId = params.id;
+        const rentalId = Array.isArray(rawId) ? rawId[0] : rawId;
+        if (!rentalId) return;
+        if (fetchedRentalIdRef.current === rentalId) return;
+        fetchedRentalIdRef.current = rentalId;
+
         const fetchProperty = async () => {
-            if (!params.id) return;
             setLoading(true);
             try {
-                const rental = await getRentalByIdService(params.id as string);
+                const rental = await getRentalByIdService(rentalId);
                 if (rental) {
                     const mapped = mapRentalToPropertyData(rental);
                     setProperty(mapped);
+                    setFailedImageMap({});
                     if (mapped.images && mapped.images.length > 0) {
                         setSelectedImage(mapped.images[0]);
                     }
@@ -76,6 +84,7 @@ export default function RentReviewPropertyPage() {
             } catch (err: unknown) {
                 console.error("Failed to fetch property:", err);
                 setError(getErrorMessage(err, "Failed to load property details"));
+                fetchedRentalIdRef.current = null;
             } finally {
                 setLoading(false);
             }
@@ -141,21 +150,10 @@ export default function RentReviewPropertyPage() {
         : "");
     const isPendingProperty = property.status === "Pending";
 
-    const handleDetailImageError = (event: React.SyntheticEvent<HTMLImageElement, Event>, raw: string) => {
-        const img = event.currentTarget;
-        const candidates = getRentalImageCandidates(raw);
-        const current = img.src;
-        const next = candidates.find((url) => url !== current);
-        if (next) {
-            img.src = next;
-            return;
-        }
-        img.style.display = "none";
-        const wrapper = img.parentElement;
-        if (wrapper) {
-            const fallback = wrapper.querySelector(".rent-detail-fallback") as HTMLElement | null;
-            if (fallback) fallback.style.display = "flex";
-        }
+    const resolveImageSrc = (raw: string) => getRentalImageCandidates(raw)[0] || raw || "";
+
+    const handleDetailImageError = (raw: string) => {
+        setFailedImageMap((prev) => ({ ...prev, [raw]: true }));
     };
 
     return (
@@ -208,21 +206,18 @@ export default function RentReviewPropertyPage() {
 
                     {/* Main Image */}
                     <div className="aspect-video w-full rounded-2xl relative shadow-sm overflow-hidden group bg-gray-100">
-                        {displayImage ? (
+                        {displayImage && !failedImageMap[displayImage] && resolveImageSrc(displayImage) ? (
                             <img
-                                src={getRentalImageCandidates(displayImage)[0] || displayImage}
+                                src={resolveImageSrc(displayImage)}
                                 alt={property.street_address}
                                 className="w-full h-full object-cover transition-transform duration-700 hover:scale-105"
-                                onError={(e) => handleDetailImageError(e, displayImage)}
+                                onError={() => handleDetailImageError(displayImage)}
                             />
                         ) : (
                             <div className="rent-detail-fallback w-full h-full flex items-center justify-center bg-slate-100">
                                 <span className="text-sm font-semibold text-slate-500">No image uploaded from API</span>
                             </div>
                         )}
-                        <div className="rent-detail-fallback w-full h-full items-center justify-center bg-slate-100 hidden">
-                            <span className="text-sm font-semibold text-slate-500">No image uploaded from API</span>
-                        </div>
                         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none"></div>
 
                         <div className="absolute bottom-4 left-4 flex gap-2 pointer-events-none">
@@ -245,12 +240,18 @@ export default function RentReviewPropertyPage() {
                                     className={`aspect-square rounded-xl overflow-hidden cursor-pointer transition-all border-2 ${selectedImage === img ? 'ring-2 ring-offset-1 ring-blue-500 border-transparent scale-95' : 'border-transparent hover:opacity-80'}`}
                                     style={{ borderColor: selectedImage === img ? currentTheme.primary : 'transparent' }}
                                 >
-                                    <img
-                                        src={getRentalImageCandidates(img)[0] || img}
-                                        alt={`Gallery ${idx}`}
-                                        className="w-full h-full object-cover"
-                                        onError={(e) => handleDetailImageError(e, img)}
-                                    />
+                                    {!failedImageMap[img] && resolveImageSrc(img) ? (
+                                        <img
+                                            src={resolveImageSrc(img)}
+                                            alt={`Gallery ${idx}`}
+                                            className="w-full h-full object-cover"
+                                            onError={() => handleDetailImageError(img)}
+                                        />
+                                    ) : (
+                                        <div className="w-full h-full flex items-center justify-center bg-slate-100">
+                                            <span className="text-[10px] font-semibold text-slate-500">No image</span>
+                                        </div>
+                                    )}
                                 </div>
                             ))}
                         </div>

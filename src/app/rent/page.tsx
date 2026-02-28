@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { MdAdd, MdSearch, MdFilterList, MdMoreHoriz, MdOutlineBedroomParent, MdOutlineBathroom, MdSquareFoot, MdLocationOn, MdChevronLeft, MdChevronRight } from "react-icons/md";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -11,6 +11,8 @@ import { showSuccessToast, showErrorToast } from "@/utils/toast";
 import { getRentals, activateRentalService, cancelRentalService, deactivateRentalService, deleteRentalService, getRentalByIdService } from "@/services/rentals.service";
 import { getRentalImageCandidates, mapRentalToPropertyData } from "@/utils/rentalMapper";
 import { useModulePermission } from "@/hooks/useModulePermission";
+import { useAuth } from "@/providers/AuthProvider";
+import { isEnterpriseAdmin, isSuperAdmin } from "@/utils/authUtils";
 
 const getErrorMessage = (error: unknown, fallback: string) => {
     if (typeof error === "string") return error;
@@ -101,6 +103,7 @@ const extractCreatorPreview = (raw: Record<string, unknown>): CreatorPreview | n
 
 export default function RentPropertiesPage() {
     const { currentTheme } = useTheme();
+    const { user } = useAuth();
     const router = useRouter();
     const { permissionReady, can } = useModulePermission("properties");
     const canViewProperties = can("view");
@@ -123,6 +126,7 @@ export default function RentPropertiesPage() {
     const [imageOverrides, setImageOverrides] = useState<Record<string, string>>({});
     const [creatorOverrides, setCreatorOverrides] = useState<Record<string, CreatorPreview>>({});
     const [listingImageFailures, setListingImageFailures] = useState<Record<string, boolean>>({});
+    const hydratedRentalIdsRef = useRef<Set<string>>(new Set());
 
     // Delete State
     const [deleteId, setDeleteId] = useState<string | number | null>(null);
@@ -155,6 +159,13 @@ export default function RentPropertiesPage() {
     const [pendingPropertyId, setPendingPropertyId] = useState<number | string | null>(null);
     const [actionLoading, setActionLoading] = useState(false);
     const [refreshKey, setRefreshKey] = useState(0); // To trigger re-fetch
+    const isOrganizationUser = isEnterpriseAdmin(user) && !isSuperAdmin(user);
+
+    useEffect(() => {
+        if (isOrganizationUser && activeTab !== "all") {
+            setActiveTab("all");
+        }
+    }, [isOrganizationUser, activeTab]);
 
     // Open Modal Handlers
     const onApproveClick = (id: number | string) => {
@@ -215,7 +226,7 @@ export default function RentPropertiesPage() {
                 const response = await getRentals({
                     page: 1,
                     limit: 300,
-                    status: activeTab === "pending" ? "pending" : undefined,
+                    status: !isOrganizationUser && activeTab === "pending" ? "pending" : undefined,
                 });
                 if (!isCurrentRequest) return;
                 const rawList = response.data || [];
@@ -232,44 +243,8 @@ export default function RentPropertiesPage() {
                 if (Object.keys(creatorSeed).length > 0) {
                     setCreatorOverrides((prev) => ({ ...prev, ...creatorSeed }));
                 }
-                const missingImageIds = mappedList
-                    .filter((p) => !p.images || p.images.length === 0)
-                    .map((p) => p.id)
-                    .filter((id) => id !== null && id !== undefined);
-
-                if (missingImageIds.length === 0) {
-                    setAllProperties(mappedList);
-                } else {
-                    const detailResults = await Promise.all(
-                        missingImageIds.map(async (id) => {
-                            try {
-                                const detail = await getRentalByIdService(id);
-                                if (!detail) return null;
-                                return mapRentalToPropertyData(detail);
-                            } catch {
-                                return null;
-                            }
-                        }),
-                    );
-                    if (!isCurrentRequest) return;
-
-                    const detailImageMap = new Map<string, string[]>();
-                    detailResults.forEach((item) => {
-                        if (item && item.id !== undefined && item.id !== null && item.images && item.images.length > 0) {
-                            detailImageMap.set(String(item.id), item.images);
-                        }
-                    });
-
-                    const merged = mappedList.map((item) => {
-                        const detailImages = detailImageMap.get(String(item.id));
-                        if ((!item.images || item.images.length === 0) && detailImages && detailImages.length > 0) {
-                            return { ...item, images: detailImages };
-                        }
-                        return item;
-                    });
-
-                    setAllProperties(merged);
-                }
+                hydratedRentalIdsRef.current.clear();
+                setAllProperties(mappedList);
             } catch (err: unknown) {
                 if (!isCurrentRequest) return;
                 console.error("Failed to fetch properties", err);
@@ -286,7 +261,7 @@ export default function RentPropertiesPage() {
         return () => {
             isCurrentRequest = false;
         };
-    }, [activeTab, refreshKey, permissionReady, canViewProperties]);
+    }, [activeTab, refreshKey, permissionReady, canViewProperties, isOrganizationUser]);
 
     useEffect(() => {
         try {
@@ -353,13 +328,16 @@ export default function RentPropertiesPage() {
     useEffect(() => {
         const hydrateMissingImages = async () => {
             const targets = properties
-                .filter((p) =>
-                    ((!p.images || p.images.length === 0) && !imageOverrides[String(p.id)]) ||
-                    !creatorOverrides[String(p.id)],
-                )
+                .filter((p) => {
+                    const idKey = String(p.id);
+                    if (hydratedRentalIdsRef.current.has(idKey)) return false;
+                    return ((!p.images || p.images.length === 0) && !imageOverrides[idKey]) || !creatorOverrides[idKey];
+                })
                 .map((p) => p.id);
 
             if (targets.length === 0) return;
+
+            targets.forEach((id) => hydratedRentalIdsRef.current.add(String(id)));
 
             const updates: Record<string, string> = {};
             const creatorUpdates: Record<string, CreatorPreview> = {};
@@ -390,7 +368,7 @@ export default function RentPropertiesPage() {
         };
 
         hydrateMissingImages();
-    }, [properties, imageOverrides, creatorOverrides]);
+    }, [properties]);
 
     const initiateDelete = (id: number | string) => {
         if (!canDeleteProperties) return;
@@ -489,28 +467,30 @@ export default function RentPropertiesPage() {
                     <p className="font-medium text-sm" style={{ color: currentTheme.textColor }}>Manage your rental listings.</p>
 
                     {/* Tabs */}
-                    <div className="flex items-center gap-1 mt-4 p-1 rounded-lg border w-fit" style={{ borderColor: currentTheme.borderColor, backgroundColor: currentTheme.cardBg }}>
-                        <button
-                            onClick={() => { setActiveTab('all'); setPagination(p => ({ ...p, page: 1 })); }}
-                            className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${activeTab === 'all' ? 'shadow-sm' : 'hover:bg-black/5 opacity-60'}`}
-                            style={{
-                                backgroundColor: activeTab === 'all' ? currentTheme.primary : 'transparent',
-                                color: activeTab === 'all' ? '#fff' : currentTheme.textColor
-                            }}
-                        >
-                            Active Listings
-                        </button>
-                        <button
-                            onClick={() => { setActiveTab('pending'); setPagination(p => ({ ...p, page: 1 })); }}
-                            className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${activeTab === 'pending' ? 'shadow-sm' : 'hover:bg-black/5 opacity-60'}`}
-                            style={{
-                                backgroundColor: activeTab === 'pending' ? currentTheme.primary : 'transparent',
-                                color: activeTab === 'pending' ? '#fff' : currentTheme.textColor
-                            }}
-                        >
-                            Pending Approval
-                        </button>
-                    </div>
+                    {!isOrganizationUser && (
+                        <div className="flex items-center gap-1 mt-4 p-1 rounded-lg border w-fit" style={{ borderColor: currentTheme.borderColor, backgroundColor: currentTheme.cardBg }}>
+                            <button
+                                onClick={() => { setActiveTab('all'); setPagination(p => ({ ...p, page: 1 })); }}
+                                className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${activeTab === 'all' ? 'shadow-sm' : 'hover:bg-black/5 opacity-60'}`}
+                                style={{
+                                    backgroundColor: activeTab === 'all' ? currentTheme.primary : 'transparent',
+                                    color: activeTab === 'all' ? '#fff' : currentTheme.textColor
+                                }}
+                            >
+                                Active Listings
+                            </button>
+                            <button
+                                onClick={() => { setActiveTab('pending'); setPagination(p => ({ ...p, page: 1 })); }}
+                                className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${activeTab === 'pending' ? 'shadow-sm' : 'hover:bg-black/5 opacity-60'}`}
+                                style={{
+                                    backgroundColor: activeTab === 'pending' ? currentTheme.primary : 'transparent',
+                                    color: activeTab === 'pending' ? '#fff' : currentTheme.textColor
+                                }}
+                            >
+                                Pending Approval
+                            </button>
+                        </div>
+                    )}
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">

@@ -27,6 +27,35 @@ const getErrorPayload = (error: unknown): unknown => {
   return response.data ?? error;
 };
 
+const inFlightGetRequests = new Map<string, Promise<unknown>>();
+const recentGetCache = new Map<string, { timestamp: number; value: unknown }>();
+const BURST_CACHE_MS = 500;
+
+const dedupeGet = async <T>(key: string, request: () => Promise<T>): Promise<T> => {
+  const now = Date.now();
+  const cached = recentGetCache.get(key);
+  if (cached && now - cached.timestamp < BURST_CACHE_MS) {
+    return cached.value as T;
+  }
+
+  const existing = inFlightGetRequests.get(key);
+  if (existing) {
+    return existing as Promise<T>;
+  }
+
+  const pending = request()
+    .then((result) => {
+      recentGetCache.set(key, { timestamp: Date.now(), value: result });
+      return result;
+    })
+    .finally(() => {
+      inFlightGetRequests.delete(key);
+    });
+
+  inFlightGetRequests.set(key, pending);
+  return pending;
+};
+
 const normalizeListResponse = (raw: unknown): RentalListResponse => {
   const rawObj = asRecord(raw);
   const rawData = rawObj.data;
@@ -59,7 +88,10 @@ export const getRentals = async (
   params?: RentalQueryParams,
 ): Promise<RentalListResponse> => {
   try {
-    const response = await privetApi.get("/rentals", { params });
+    const queryKey = JSON.stringify(params ?? {});
+    const response = await dedupeGet(`rentals:${queryKey}`, () =>
+      privetApi.get("/rentals", { params }),
+    );
     return normalizeListResponse(response.data);
   } catch (error: unknown) {
     throw getErrorPayload(error);
@@ -70,7 +102,10 @@ export const getMyRentals = async (
   params?: RentalQueryParams,
 ): Promise<RentalListResponse> => {
   try {
-    const response = await privetApi.get("/rentals/my-rentals", { params });
+    const queryKey = JSON.stringify(params ?? {});
+    const response = await dedupeGet(`my-rentals:${queryKey}`, () =>
+      privetApi.get("/rentals/my-rentals", { params }),
+    );
     return normalizeListResponse(response.data);
   } catch (error: unknown) {
     throw getErrorPayload(error);
