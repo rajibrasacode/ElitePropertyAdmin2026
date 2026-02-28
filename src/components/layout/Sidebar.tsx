@@ -161,13 +161,30 @@ const UserFooter = ({
   onLogout: () => void;
 }) => {
   const [mounted, setMounted] = useState(false);
+  const [imageFailed, setImageFailed] = useState(false);
   useEffect(() => setMounted(true), []);
 
+  const displayUser = mounted ? user : null;
+  const rawProfileImage =
+    displayUser?.profile_image ||
+    displayUser?.profileImage ||
+    displayUser?.avatar ||
+    "";
+  const profileImageSrc =
+    typeof rawProfileImage === "string" && rawProfileImage.startsWith("/")
+      ? `http://localhost:4000${rawProfileImage}`
+      : rawProfileImage;
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [profileImageSrc]);
+
   const getInitials = () => {
-    if (!mounted || !user) return "";
-    const first = user.first_name?.[0] ?? "";
-    const last = user.last_name?.[0] ?? "";
-    return (first + last).toUpperCase();
+    if (!displayUser) return "A";
+    const first = displayUser.first_name?.[0] ?? "";
+    const last = displayUser.last_name?.[0] ?? "";
+    const fallback = displayUser.username?.[0] ?? "A";
+    return (first + last || fallback).toUpperCase();
   };
 
   const formatRole = (roles?: any[]) => {
@@ -188,14 +205,23 @@ const UserFooter = ({
     >
       {/* Avatar */}
       <div
-        className="w-9 h-9 rounded-lg flex items-center justify-center text-sm font-bold flex-shrink-0"
+        className="w-9 h-9 rounded-lg flex items-center justify-center text-sm font-bold flex-shrink-0 shadow-md overflow-hidden"
         style={{
-          background: `linear-gradient(135deg, ${currentTheme.primary}, ${currentTheme.primary}bb)`,
+          backgroundColor: currentTheme.primary,
           color: "#fff",
         }}
         suppressHydrationWarning
       >
-        {getInitials()}
+        {profileImageSrc && !imageFailed ? (
+          <img
+            src={profileImageSrc}
+            alt=""
+            className="w-9 h-9 rounded-lg object-cover"
+            onError={() => setImageFailed(true)}
+          />
+        ) : (
+          getInitials()
+        )}
       </div>
 
       {(!collapsed || mobileOpen) && (
@@ -206,14 +232,14 @@ const UserFooter = ({
               style={{ color: currentTheme.sidebarText }}
               suppressHydrationWarning
             >
-              {mounted ? user?.first_name : ""}
+              {mounted ? displayUser?.first_name : ""}
             </p>
             <p
               className="text-xs truncate leading-tight mt-0.5"
               style={{ color: `${currentTheme.sidebarText}88` }}
               suppressHydrationWarning
             >
-              {mounted ? formatRole(user?.roles) : ""}
+              {mounted ? formatRole(displayUser?.roles) : ""}
             </p>
           </div>
 
