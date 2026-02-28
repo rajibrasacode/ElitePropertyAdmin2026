@@ -623,7 +623,7 @@ export default function PropertiesPage() {
                                                             </button>
                                                         </Link>
                                                     )}
-                                                    {canEditProperties && (
+                                                    {canEditProperties && activeTab === 'pending' && (
                                                         <Link href={`/properties/edit/${property.id}`} className="w-full">
                                                             <button
                                                                 className="w-full px-4 py-2.5 text-left text-sm font-semibold hover:bg-black/5 transition-colors flex items-center gap-2"

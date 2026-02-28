@@ -788,7 +788,7 @@ export default function RentPropertiesPage() {
                                                             Review Property
                                                         </button>
                                                     )}
-                                                    {canEditProperties && (
+                                                    {canEditProperties && property.status === "Pending" && (
                                                         <button
                                                             onClick={() => router.push(`/rent/edit/${property.id}`)}
                                                             className="w-full px-4 py-2.5 text-left text-sm font-semibold hover:bg-black/5 transition-colors flex items-center gap-2"
