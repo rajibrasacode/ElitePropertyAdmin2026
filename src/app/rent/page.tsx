@@ -22,9 +22,81 @@ const getErrorMessage = (error: unknown, fallback: string) => {
 };
 
 type CreatorPreview = {
-    fullName: string;
-    email: string;
+    username: string;
+    phoneNumber: string;
     profileImage: string;
+};
+
+type CreatorAvatarProps = {
+    profileImage?: string;
+    username?: string;
+    initial: string;
+};
+
+function CreatorAvatar({ profileImage, username, initial }: CreatorAvatarProps) {
+    const [imageFailed, setImageFailed] = useState(false);
+
+    useEffect(() => {
+        setImageFailed(false);
+    }, [profileImage]);
+
+    if (profileImage && !imageFailed) {
+        return (
+            <img
+                src={profileImage}
+                alt=""
+                aria-label={username || "Creator"}
+                className="w-6 h-6 rounded-full object-cover"
+                onError={() => setImageFailed(true)}
+            />
+        );
+    }
+
+    return (
+        <div className="w-6 h-6 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center text-[10px] font-bold">
+            {initial}
+        </div>
+    );
+}
+
+const toRecord = (value: unknown): Record<string, unknown> =>
+    typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {};
+
+const pickString = (obj: Record<string, unknown>, keys: string[]): string => {
+    for (const key of keys) {
+        const value = obj[key];
+        if (typeof value === "string" && value.trim()) return value.trim();
+    }
+    return "";
+};
+
+const extractCreatorPreview = (raw: Record<string, unknown>): CreatorPreview | null => {
+    const creator = toRecord(
+        raw.creator ||
+        raw.created_by ||
+        raw.createdBy ||
+        raw.user ||
+        raw.owner ||
+        raw.uploaded_by
+    );
+    if (Object.keys(creator).length === 0) return null;
+
+    const first = pickString(creator, ["first_name", "firstName"]);
+    const last = pickString(creator, ["last_name", "lastName"]);
+    const fullFromParts = `${first} ${last}`.trim();
+    const fullFromSingle = pickString(creator, ["full_name", "fullName", "name"]);
+    const username = pickString(creator, ["username", "user_name"]);
+    const fallbackName = fullFromParts || fullFromSingle || username;
+    const phoneNumber = pickString(creator, ["phone_number", "phoneNumber", "phone", "mobile"]);
+    const displayUsername = username || fallbackName || "N/A";
+    const rawProfile = pickString(creator, ["profile_image", "profileImage", "avatar", "image", "photo"]);
+    const profileImage = rawProfile ? (getRentalImageCandidates(rawProfile)[0] || rawProfile) : "";
+
+    return {
+        username: displayUsername,
+        phoneNumber: phoneNumber || "No phone",
+        profileImage,
+    };
 };
 
 export default function RentPropertiesPage() {
@@ -50,6 +122,7 @@ export default function RentPropertiesPage() {
     const [error, setError] = useState<string | null>(null);
     const [imageOverrides, setImageOverrides] = useState<Record<string, string>>({});
     const [creatorOverrides, setCreatorOverrides] = useState<Record<string, CreatorPreview>>({});
+    const [listingImageFailures, setListingImageFailures] = useState<Record<string, boolean>>({});
 
     // Delete State
     const [deleteId, setDeleteId] = useState<string | number | null>(null);
@@ -133,15 +206,32 @@ export default function RentPropertiesPage() {
             return;
         }
 
+        let isCurrentRequest = true;
+
         const fetchProperties = async () => {
             setLoading(true);
+            setError(null);
             try {
                 const response = await getRentals({
                     page: 1,
                     limit: 300,
                     status: activeTab === "pending" ? "pending" : undefined,
                 });
-                const mappedList = (response.data || []).map((item) => mapRentalToPropertyData(item as Record<string, unknown>));
+                if (!isCurrentRequest) return;
+                const rawList = response.data || [];
+                const mappedList = rawList.map((item) => mapRentalToPropertyData(item as Record<string, unknown>));
+                const creatorSeed: Record<string, CreatorPreview> = {};
+                rawList.forEach((item, index) => {
+                    const mapped = mappedList[index];
+                    if (!mapped || mapped.id === null || mapped.id === undefined) return;
+                    const creator = extractCreatorPreview(item as Record<string, unknown>);
+                    if (creator) {
+                        creatorSeed[String(mapped.id)] = creator;
+                    }
+                });
+                if (Object.keys(creatorSeed).length > 0) {
+                    setCreatorOverrides((prev) => ({ ...prev, ...creatorSeed }));
+                }
                 const missingImageIds = mappedList
                     .filter((p) => !p.images || p.images.length === 0)
                     .map((p) => p.id)
@@ -161,6 +251,7 @@ export default function RentPropertiesPage() {
                             }
                         }),
                     );
+                    if (!isCurrentRequest) return;
 
                     const detailImageMap = new Map<string, string[]>();
                     detailResults.forEach((item) => {
@@ -180,15 +271,21 @@ export default function RentPropertiesPage() {
                     setAllProperties(merged);
                 }
             } catch (err: unknown) {
+                if (!isCurrentRequest) return;
                 console.error("Failed to fetch properties", err);
                 setError(getErrorMessage(err, "Failed to load rentals."));
                 setAllProperties([]);
             } finally {
+                if (!isCurrentRequest) return;
                 setLoading(false);
             }
         };
 
         fetchProperties();
+
+        return () => {
+            isCurrentRequest = false;
+        };
     }, [activeTab, refreshKey, permissionReady, canViewProperties]);
 
     useEffect(() => {
@@ -275,21 +372,9 @@ export default function RentPropertiesPage() {
                         updates[String(id)] = mapped.images[0];
                     }
 
-                    const raw = detail as Record<string, unknown>;
-                    const creatorRaw = raw.creator as Record<string, unknown> | undefined;
-                    if (creatorRaw && typeof creatorRaw === "object") {
-                        const first = typeof creatorRaw.first_name === "string" ? creatorRaw.first_name : "";
-                        const last = typeof creatorRaw.last_name === "string" ? creatorRaw.last_name : "";
-                        const username = typeof creatorRaw.username === "string" ? creatorRaw.username : "";
-                        const fullName = `${first} ${last}`.trim() || username || "N/A";
-                        const email = typeof creatorRaw.email === "string" ? creatorRaw.email : "";
-                        const rawProfile = typeof creatorRaw.profile_image === "string" ? creatorRaw.profile_image : "";
-                        const profileImage = getRentalImageCandidates(rawProfile)[0] || rawProfile;
-                        creatorUpdates[String(id)] = {
-                            fullName,
-                            email: email || username || "No email",
-                            profileImage,
-                        };
+                    const creator = extractCreatorPreview(detail as Record<string, unknown>);
+                    if (creator) {
+                        creatorUpdates[String(id)] = creator;
                     }
                 } catch {
                     // ignore single record hydrate failure
@@ -373,23 +458,6 @@ export default function RentPropertiesPage() {
             return property.images[0];
         }
         return "";
-    };
-
-    const handleListingImageError = (event: React.SyntheticEvent<HTMLImageElement, Event>, raw: string) => {
-        const img = event.currentTarget;
-        const candidates = getRentalImageCandidates(raw);
-        const current = img.src;
-        const next = candidates.find((url) => url !== current);
-        if (next) {
-            img.src = next;
-            return;
-        }
-        img.style.display = "none";
-        const wrapper = img.parentElement;
-        if (wrapper) {
-            const fallback = wrapper.querySelector(".rent-image-fallback") as HTMLElement | null;
-            if (fallback) fallback.style.display = "flex";
-        }
     };
 
     if (!loading && permissionReady && !canViewProperties) {
@@ -644,7 +712,14 @@ export default function RentPropertiesPage() {
                         </button>
                     </div>
                 ) : properties.length > 0 ? (
-                    properties.map((property) => (
+                    properties.map((property) => {
+                        const propertyKey = String(property.id);
+                        const listingImage = getListingImage(property);
+                        const listingImageKey = `${propertyKey}:${listingImage}`;
+                        const showListingImage = Boolean(listingImage) && !listingImageFailures[listingImageKey];
+                        const creatorInfo = creatorOverrides[String(property.id)];
+                        const creatorInitial = (creatorInfo?.username || "N").trim().charAt(0).toUpperCase() || "N";
+                        return (
                         <div
                             onClick={() => router.push(`/rent/review/${property.id}`)}
                             key={property.id}
@@ -656,21 +731,24 @@ export default function RentPropertiesPage() {
                         >
                             {/* Image Placeholder */}
                             <div className="h-48 w-full relative overflow-hidden">
-                                {getListingImage(property) ? (
-                                    <>
-                                        <img
-                                            src={getRentalImageCandidates(getListingImage(property))[0] || getListingImage(property)}
-                                            alt={property.street_address || "Property"}
-                                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                                            onError={(e) => handleListingImageError(e, getListingImage(property))}
-                                        />
-                                        <div className="rent-image-fallback w-full h-full items-center justify-center bg-slate-100 hidden">
-                                            <span className="text-xs font-semibold text-slate-500">No image uploaded</span>
-                                        </div>
-                                    </>
+                                {showListingImage ? (
+                                    <img
+                                        src={getRentalImageCandidates(listingImage)[0] || listingImage}
+                                        alt=""
+                                        aria-label={property.street_address || "Property image"}
+                                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                                        onError={() =>
+                                            setListingImageFailures((prev) => ({
+                                                ...prev,
+                                                [listingImageKey]: true,
+                                            }))
+                                        }
+                                    />
                                 ) : (
-                                    <div className="rent-image-fallback w-full h-full flex items-center justify-center bg-slate-100">
-                                        <span className="text-xs font-semibold text-slate-500">No image uploaded</span>
+                                    <div className="w-full h-full flex items-center justify-center bg-slate-100">
+                                        <div className="px-3 py-1 rounded-md bg-slate-300 text-slate-700 text-sm font-semibold">
+                                            No Image Available
+                                        </div>
                                     </div>
                                 )}
                                 <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-60"></div>
@@ -733,24 +811,18 @@ export default function RentPropertiesPage() {
                                 <div className=" pt-4 border-t flex items-center justify-between" style={{ borderColor: currentTheme.borderColor }}>
                                     <div className="flex items-center gap-2">
                                         <div className="relative">
-                                            {creatorOverrides[String(property.id)]?.profileImage ? (
-                                                <img
-                                                    src={creatorOverrides[String(property.id)]?.profileImage}
-                                                    alt={creatorOverrides[String(property.id)]?.fullName || "Creator"}
-                                                    className="w-6 h-6 rounded-full object-cover"
-                                                />
-                                            ) : (
-                                                <div className="w-6 h-6 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center text-[10px] font-bold">
-                                                    {(creatorOverrides[String(property.id)]?.fullName || "A").slice(0, 1).toUpperCase()}
-                                                </div>
-                                            )}
+                                            <CreatorAvatar
+                                                profileImage={creatorInfo?.profileImage}
+                                                username={creatorInfo?.username}
+                                                initial={creatorInitial}
+                                            />
                                         </div>
                                         <div>
                                             <p className="text-[10px] uppercase font-bold tracking-wider opacity-60 line-clamp-1" style={{ color: currentTheme.textColor }}>
-                                                {creatorOverrides[String(property.id)]?.fullName || "N/A"}
+                                                {creatorInfo?.username || "N/A"}
                                             </p>
                                             <p className="text-[10px] opacity-70 line-clamp-1" style={{ color: currentTheme.textColor }}>
-                                                {creatorOverrides[String(property.id)]?.email || "No email"}
+                                                {creatorInfo?.phoneNumber || "No phone"}
                                             </p>
                                         </div>
                                     </div>
@@ -788,7 +860,7 @@ export default function RentPropertiesPage() {
                                                             Review Property
                                                         </button>
                                                     )}
-                                                    {canEditProperties && (
+                                                    {canEditProperties && property.status === "Pending" && (
                                                         <button
                                                             onClick={() => router.push(`/rent/edit/${property.id}`)}
                                                             className="w-full px-4 py-2.5 text-left text-sm font-semibold hover:bg-black/5 transition-colors flex items-center gap-2"
@@ -848,7 +920,8 @@ export default function RentPropertiesPage() {
 
 
                         </div>
-                    ))
+                    );
+                    })
                 ) : (
                     <div className="col-span-full py-20 flex flex-col items-center justify-center opacity-50">
                         <div className="bg-gray-100 p-6 rounded-full mb-4">

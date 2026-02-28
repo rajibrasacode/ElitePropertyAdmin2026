@@ -4,7 +4,7 @@ import React from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import PropertyForm from "@/components/common/Propertiesform";
-import { getPropertyByIdService, putPropertyByIdService } from "@/services/properties.service";
+import { getPropertyByIdService, putPropertyByIdService, getPendingPropertyByIdService } from "@/services/properties.service";
 import { propertyToFormData } from "@/utils/propertyFormUtils";
 import { showSuccessToast, showErrorToast } from "@/utils/toast";
 
@@ -25,7 +25,7 @@ export default function EditPropertyPage() {
 
   const { data: rawProperty, isLoading, isError, error } = useQuery({
     queryKey: ["property", id],
-    queryFn: () => getPropertyByIdService(id),
+    queryFn: () => getPendingPropertyByIdService(id),
     enabled: !!id,
   });
 

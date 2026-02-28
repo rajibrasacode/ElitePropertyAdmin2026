@@ -11,6 +11,7 @@ import TypewriterGreeting from "./TypewriterGreeting";
 const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
     const [collapsed, setCollapsed] = useState(false);
     const [mobileOpen, setMobileOpen] = useState(false);
+    const [mounted, setMounted] = useState(false);
     const { currentTheme } = useTheme(); // Getting current theme
     const { user, logout, isAuthenticated } = useAuth(); // Get user from AuthContext
     const router = useRouter();
@@ -22,6 +23,10 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
             router.replace('/login');
         }
     }, [isAuthenticated, router]);
+
+    React.useEffect(() => {
+        setMounted(true);
+    }, []);
 
     const handleSearch = () => {
         if (searchQuery.trim()) {
@@ -40,8 +45,27 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
         }
     };
 
-    // Get initials or default to "A"
-    const initials = user?.name ? user.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() : "A";
+    const displayUser = mounted ? user : null;
+
+    const getDisplayName = () => {
+        const fullName = `${displayUser?.first_name ?? ""} ${displayUser?.last_name ?? ""}`.trim();
+        return displayUser?.name || fullName || displayUser?.username || "A";
+    };
+
+    const initials = getDisplayName().charAt(0).toUpperCase() || "A";
+    const rawProfileImage =
+        (displayUser as { profile_image?: string; profileImage?: string } | null)?.profile_image ||
+        (displayUser as { profile_image?: string; profileImage?: string } | null)?.profileImage ||
+        displayUser?.avatar ||
+        "";
+    const profileImageSrc = rawProfileImage.startsWith("/")
+        ? `http://localhost:4000${rawProfileImage}`
+        : rawProfileImage;
+    const [profileImageFailed, setProfileImageFailed] = useState(false);
+
+    React.useEffect(() => {
+        setProfileImageFailed(false);
+    }, [profileImageSrc]);
 
     return (
         <div
@@ -81,7 +105,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
                             </button>
 
                             <div className="hidden sm:block">
-                                <TypewriterGreeting userName={user?.username || "Admin"} />
+                                <TypewriterGreeting userName={displayUser?.username || "Admin"} />
                             </div>
                         </div>
 
@@ -119,12 +143,21 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
                             </button>
                             <div className="h-8 w-px mx-1 bg-black/10"></div>
                             <div
-                                onClick={handleLogout}
+                                onClick={() => router.push("/settings#admin-profile")}
                                 className="w-9 h-9 rounded-lg text-white flex items-center justify-center font-bold text-xs shadow-md cursor-pointer hover:brightness-110"
                                 style={{ backgroundColor: currentTheme.primary }}
-                                title="Click to Logout"
+                                title="Go to Admin Profile"
                             >
-                                {initials}
+                                {profileImageSrc && !profileImageFailed ? (
+                                    <img
+                                        src={profileImageSrc}
+                                        alt=""
+                                        className="w-9 h-9 rounded-lg object-cover"
+                                        onError={() => setProfileImageFailed(true)}
+                                    />
+                                ) : (
+                                    initials
+                                )}
                             </div>
                         </div>
                     </header>

@@ -150,13 +150,22 @@ export default function PermissionsPage() {
 
   // ---- toggle a single cell --------------------------------
   const handleToggle = (moduleKey: ModuleKey, actionKey: ActionKey) => {
-    setPermissions((prev) => ({
-      ...prev,
-      [moduleKey]: {
-        ...prev[moduleKey],
-        [actionKey]: !prev[moduleKey][actionKey],
-      },
-    }));
+    setPermissions((prev) => {
+      const modulePerms = { ...(prev[moduleKey] || {}) } as Record<ActionKey, boolean>;
+      const newValue = !modulePerms[actionKey];
+      modulePerms[actionKey] = newValue;
+
+      if (actionKey === "view" && !newValue) {
+        ACTION_CONFIG.forEach((action) => {
+          modulePerms[action.key as ActionKey] = false;
+        });
+      }
+
+      return {
+        ...prev,
+        [moduleKey]: modulePerms,
+      };
+    });
   };
 
   // ---- reset to original (server) state -------------------

@@ -29,6 +29,7 @@ export default function PropertiesPage() {
     const [showFilters, setShowFilters] = useState(false);
     const [activeMenuId, setActiveMenuId] = useState<number | string | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const [listingImageFailures, setListingImageFailures] = useState<Record<string, boolean>>({});
 
     // Delete State
     const [deleteId, setDeleteId] = useState<string | number | null>(null);
@@ -511,7 +512,11 @@ export default function PropertiesPage() {
                         </button>
                     </div>
                 ) : filteredProperties.length > 0 ? (
-                    filteredProperties.map((property) => (
+                    filteredProperties.map((property) => {
+                        const listingImage = property.images && property.images.length > 0 ? property.images[0] : "";
+                        const imageKey = `${property.id}:${listingImage}`;
+                        const showListingImage = Boolean(listingImage) && !listingImageFailures[imageKey];
+                        return (
                         <div
                             onClick={() => router.push(`/properties/review/${property.id}${activeTab === 'pending' ? '?source=pending' : ''}`)}
                             key={property.id}
@@ -523,11 +528,26 @@ export default function PropertiesPage() {
                         >
                             {/* Image Placeholder */}
                             <div className="h-48 w-full relative overflow-hidden">
-                                <img
-                                    src={property.images && property.images.length > 0 ? property.images[0] : "https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&q=80&w=1000"}
-                                    alt={property.street_address || "Property"}
-                                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                                />
+                                {showListingImage ? (
+                                    <img
+                                        src={listingImage}
+                                        alt=""
+                                        aria-label={property.street_address || "Property image"}
+                                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                                        onError={() =>
+                                            setListingImageFailures((prev) => ({
+                                                ...prev,
+                                                [imageKey]: true,
+                                            }))
+                                        }
+                                    />
+                                ) : (
+                                    <div className="w-full h-full flex items-center justify-center bg-slate-100">
+                                        <div className="px-3 py-1 rounded-md bg-slate-300 text-slate-700 text-sm font-semibold">
+                                            No Image Available
+                                        </div>
+                                    </div>
+                                )}
                                 <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-60"></div>
 
                                 <div
@@ -623,7 +643,7 @@ export default function PropertiesPage() {
                                                             </button>
                                                         </Link>
                                                     )}
-                                                    {canEditProperties && (
+                                                    {canEditProperties && activeTab === 'pending' && (
                                                         <Link href={`/properties/edit/${property.id}`} className="w-full">
                                                             <button
                                                                 className="w-full px-4 py-2.5 text-left text-sm font-semibold hover:bg-black/5 transition-colors flex items-center gap-2"
@@ -681,7 +701,8 @@ export default function PropertiesPage() {
                                 </div>
                             </div>
                         </div>
-                    ))
+                    );
+                    })
                 ) : (
                     <div className="col-span-full py-20 text-center opacity-50">
                         <p className="text-lg font-bold">No properties found matching your filters.</p>

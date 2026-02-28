@@ -116,7 +116,7 @@ export const putPropertyByIdService = async (
   formData: FormData,
 ) => {
   try {
-    const { data } = await privetApi.put(`/properties/${id}`, formData);
+    const { data } = await privetApi.put(`/properties/pending/${id}`, formData);
     return data;
   } catch (error: any) {
     throw error.response?.data || error;
