@@ -276,13 +276,13 @@ export default function PropertyForm({
               </div>
 
               <div className="col-span-6 sm:col-span-4">
-                <InputField label="Garage" icon={<MdGarage />}>
+                <InputField label="Garage" icon={<MdGarage />} required>
                   <TextInput required type="number" placeholder="2" {...register("garage_spaces")} />
                 </InputField>
                 <ErrorMessage error={getFieldError("garage_spaces")} />
               </div>
               <div className="col-span-6 sm:col-span-4">
-                <InputField label="Parking" icon={<MdDirectionsCar />}>
+                <InputField label="Parking" icon={<MdDirectionsCar />} required>
                   <TextInput required type="number" placeholder="4" {...register("parking_spaces")} />
                 </InputField>
                 <ErrorMessage error={getFieldError("parking_spaces")} />
@@ -313,7 +313,7 @@ export default function PropertyForm({
                 <ErrorMessage error={getFieldError("roof_status")} />
               </div>
               <div className="col-span-12">
-                <InputField label="Interior Condition" icon={<MdBrush />}>
+                <InputField label="Interior Condition" icon={<MdBrush />} required>
                   <SelectInput required {...register("interior_condition")} options={interiorConditionOptions.map((opt) => opt.value)} />
                 </InputField>
                 <ErrorMessage error={getFieldError("interior_condition")} />

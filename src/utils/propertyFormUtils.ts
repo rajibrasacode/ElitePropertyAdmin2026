@@ -67,7 +67,13 @@ export const propertyTypeOptions = [
   { value: "Multi-Family", label: "Multi-Family" },
   { value: "Single-Family", label: "Single-Family" },
 ];
-
+export const rentalTypeOptions = [
+  { value: "Apartment", label: "Apartment" },
+  { value: "Villa", label: "Villa" },
+  { value: "Studio", label: "Studio" },
+  { value: "Penthouse", label: "Penthouse" },
+  { value: "Builder Floor", label: "Builder Floor" },
+];
 export const roofStatusOptions = [
   { value: "Excellent", label: "Excellent" },
   { value: "Good", label: "Good" },

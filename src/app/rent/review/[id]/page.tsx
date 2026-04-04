@@ -342,9 +342,9 @@ function RentReviewContent() {
                                     { label: "Lease Duration",   value: property.lease_duration ? `${property.lease_duration} Months` : null },
                                     { label: "Application Fee",  value: property.application_fee ? `$${property.application_fee.toLocaleString()}` : "None" },
                                     { label: "Move-in Fees",     value: property.move_in_fees    ? `$${property.move_in_fees.toLocaleString()}`    : "None" },
-                                    { label: "Smoking Policy",   value: property.smoking_policy  || "Not Specified" },
-                                    { label: "Furnished",        value: property.is_furnished ? "Yes" : "No" },
-                                    { label: "Pets Allowed",     value: property.pets_allowed  ? "Yes" : "No" },
+                                    // { label: "Smoking Policy",   value: property.smoking_policy  || "Not Specified" },
+                                    // { label: "Furnished",        value: property.is_furnished ? "Yes" : "No" },
+                                    // { label: "Pets Allowed",     value: property.pets_allowed  ? "Yes" : "No" },
                                     { label: "Garage Spaces",    value: property.garage_spaces  || "None" },
                                     { label: "Parking Spaces",   value: property.parking_spaces || "None" },
                                     { label: "County",           value: property.county },
@@ -428,12 +428,39 @@ function RentReviewContent() {
                                         <span className="font-bold text-sm" style={{ color: currentTheme.headingColor }}>Pets Allowed</span>
                                     </div>
                                 )}
-                                {property.smoking_policy === "Not Allowed" && (
-                                    <div className="flex items-center gap-3 p-3 rounded-xl border bg-opacity-30" style={{ borderColor: currentTheme.borderColor, backgroundColor: currentTheme.cardBg }}>
-                                        <div className="p-1 rounded-full bg-red-500/10 text-red-500"><MdSmokeFree size={16} /></div>
-                                        <span className="font-bold text-sm" style={{ color: currentTheme.headingColor }}>No Smoking</span>
-                                    </div>
-                                )}
+                                {property.smoking_policy && (
+  <div
+    className="flex items-center gap-3 p-3 rounded-xl border bg-opacity-30"
+    style={{
+      borderColor: currentTheme.borderColor,
+      backgroundColor: currentTheme.cardBg
+    }}
+  >
+    {/* Icon */}
+    <div
+      className={`p-1 rounded-full ${
+        property.smoking_policy === "allowed"
+          ? "bg-green-500/10 text-green-500"
+          : property.smoking_policy === "designated_areas"
+          ? "bg-yellow-500/10 text-yellow-500"
+          : "bg-red-500/10 text-red-500"
+      }`}
+    >
+      <MdSmokeFree size={16} />
+    </div>
+
+    {/* Label */}
+    <span
+      className="font-bold text-sm"
+      style={{ color: currentTheme.headingColor }}
+    >
+      {property.smoking_policy === "allowed" && "Smoking Allowed"}
+      {property.smoking_policy === "designated_areas" &&
+        "Designated Areas"}
+      {property.smoking_policy === "not_allowed" && "No Smoking"}
+    </span>
+  </div>
+)}
                             </div>
                         </div>
 

@@ -18,6 +18,8 @@ import { Pagination } from "@/components/common/Pagination";
 import { PermissionGuard } from "@/components/auth/PermissionGuard";
 import { usePlans } from "@/hooks/usePlans";
 import type { Plan } from "@/types/plans.types";
+import type { PlanDeleteGuard } from "@/utils/planDeleteUtils";
+import { getPlanDeleteGuard } from "@/utils/planDeleteUtils";
 
 const CYCLE_LABEL: Record<string, string> = {
   monthly: "/ mo",
@@ -39,17 +41,90 @@ const getPlanTypeStyle = (planType?: string) => {
   return PLAN_TYPE_COLORS[key] ?? { bg: "rgba(107,114,128,0.1)", text: "#9ca3af", border: "rgba(107,114,128,0.2)" };
 };
 
-// ─── Per-row action menu (self-contained, ref-based) ──────────────────────────
+// ─── Stylish custom tooltip (appears LEFT of the delete row) ─────────────────
+function BlockedTooltip({ message }: { message: string }) {
+  return (
+    <div
+      className="absolute right-full top-1/2 mr-3 pointer-events-none z-[9999]"
+      style={{
+        transform: "translateY(-50%)",
+        animation: "tooltipSlideIn 0.18s cubic-bezier(0.16,1,0.3,1) both",
+      }}
+    >
+      {/* Bubble */}
+      <div
+        className="relative px-3 py-2 rounded-lg text-xs font-semibold leading-snug text-white shadow-2xl"
+        style={{
+          background: "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)",
+          border: "1px solid rgba(99,102,241,0.4)",
+          boxShadow: "0 8px 28px rgba(0,0,0,0.45), 0 0 0 1px rgba(99,102,241,0.18)",
+          whiteSpace: "pre-line",
+          width: "320px",
+          maxWidth: "min(320px, calc(100vw - 32px))",
+        }}
+      >
+        {/* Indigo shimmer line at top */}
+        <div
+          className="absolute inset-x-0 top-0 h-px rounded-t-lg"
+          style={{
+            background: "linear-gradient(90deg, transparent, #818cf8, transparent)",
+          }}
+        />
+        {message}
+        {/* Arrow pointing RIGHT (toward the button) */}
+        <div
+          className="absolute top-1/2 left-full"
+          style={{
+            transform: "translateY(-50%)",
+            width: 0,
+            height: 0,
+            borderTop: "6px solid transparent",
+            borderBottom: "6px solid transparent",
+            borderLeft: "7px solid #1e293b",
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
+// ─── Per-row action menu (self-contained, smart direction) ───────────────────
 function PlanActionMenu({
   plan,
   onDelete,
+  deleteGuard,
 }: {
   plan: Plan;
   onDelete: (id: number) => void;
+  deleteGuard: PlanDeleteGuard;
 }) {
   const { currentTheme } = useTheme();
   const [open, setOpen] = useState(false);
+  const [dropUp, setDropUp] = useState(false);
+  const [showTooltip, setShowTooltip] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+
+  // Detect available space on open
+  const handleToggle = () => {
+    if (!open && btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect();
+      const boundary = ref.current?.closest(
+        "[data-plan-menu-boundary]",
+      ) as HTMLElement | null;
+      const boundaryRect = boundary?.getBoundingClientRect();
+      const boundaryTop = boundaryRect?.top ?? 0;
+      const boundaryBottom = Math.min(
+        window.innerHeight,
+        boundaryRect?.bottom ?? window.innerHeight,
+      );
+      const spaceBelow = boundaryBottom - rect.bottom;
+      const spaceAbove = rect.top - boundaryTop;
+      // dropdown height estimate ~140px (3 items + divider)
+      setDropUp(spaceBelow < 160 && spaceAbove > spaceBelow);
+    }
+    setOpen((prev) => !prev);
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -62,10 +137,47 @@ function PlanActionMenu({
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
 
+  const deleteButton = (
+    <div
+      className="relative w-full"
+      onMouseEnter={() => deleteGuard.isBlocked && setShowTooltip(true)}
+      onMouseLeave={() => setShowTooltip(false)}
+      style={{ isolation: "isolate" }}
+    >
+      {showTooltip && deleteGuard.tooltip && (
+        <BlockedTooltip message={deleteGuard.tooltip} />
+      )}
+      <button
+        type="button"
+        onClick={() => {
+          if (deleteGuard.isBlocked) return;
+          setOpen(false);
+          onDelete(plan.id);
+        }}
+        disabled={deleteGuard.isBlocked}
+        aria-disabled={deleteGuard.isBlocked}
+        className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors w-full ${
+          deleteGuard.isBlocked
+            ? "cursor-not-allowed opacity-50"
+            : "text-red-500 hover:bg-red-50/20"
+        }`}
+        style={
+          deleteGuard.isBlocked
+            ? { color: currentTheme.textColor }
+            : undefined
+        }
+      >
+        <MdDeleteOutline size={16} />
+        Delete Plan
+      </button>
+    </div>
+  );
+
   return (
     <div ref={ref} className="relative inline-block text-left">
       <button
-        onClick={() => setOpen((prev) => !prev)}
+        ref={btnRef}
+        onClick={handleToggle}
         className="p-2 rounded-full hover:bg-gray-500/10 transition-colors"
         style={{ color: currentTheme.textColor }}
         title="Actions"
@@ -75,7 +187,9 @@ function PlanActionMenu({
 
       {open && (
         <div
-          className="absolute right-0 top-full mt-1 w-48 rounded-xl border shadow-xl py-1 z-50"
+          className={`absolute right-0 w-48 rounded-xl border shadow-xl py-1 z-50 ${
+            dropUp ? "bottom-full mb-1" : "top-full mt-1"
+          }`}
           style={{
             backgroundColor: currentTheme.cardBg,
             borderColor: currentTheme.borderColor,
@@ -106,16 +220,7 @@ function PlanActionMenu({
             style={{ backgroundColor: currentTheme.borderColor }}
           />
 
-          <button
-            onClick={() => {
-              setOpen(false);
-              onDelete(plan.id);
-            }}
-            className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-red-500 hover:bg-red-50/20 transition-colors w-full"
-          >
-            <MdDeleteOutline size={16} />
-            Delete Plan
-          </button>
+          {deleteButton}
         </div>
       )}
     </div>
@@ -170,13 +275,14 @@ function PlansContent() {
                 value={state.searchQuery}
                 onChange={(e) => state.setSearchQuery(e.target.value)}
                 className="pl-10 pr-4 py-2.5 rounded-lg border text-sm font-medium outline-none focus:ring-2 w-60 transition-all bg-transparent"
-                style={{
-                  backgroundColor: currentTheme.cardBg,
-                  borderColor: currentTheme.borderColor,
-                  color: currentTheme.textColor,
-                  // @ts-ignore
-                  "--tw-ring-color": currentTheme.primary + "40",
-                }}
+                style={
+                  {
+                    backgroundColor: currentTheme.cardBg,
+                    borderColor: currentTheme.borderColor,
+                    color: currentTheme.textColor,
+                    "--tw-ring-color": currentTheme.primary + "40",
+                  } as React.CSSProperties
+                }
               />
             </div>
 
@@ -209,214 +315,232 @@ function PlansContent() {
           </div>
         </div>
 
-        {/* Table */}
+        {/* Table — overflow:visible so dropdown menus are never clipped */}
         <div
-          className="rounded-2xl border shadow-sm overflow-hidden backdrop-blur-md"
+          className="rounded-2xl border shadow-sm backdrop-blur-md"
+          data-plan-menu-boundary
           style={{
             backgroundColor: currentTheme.cardBg + "E6",
             borderColor: currentTheme.borderColor,
+            overflow: "visible",
           }}
         >
-          <table className="w-full text-left">
-            <thead
-              className="border-b"
-              style={{
-                backgroundColor: currentTheme.background,
-                borderColor: currentTheme.borderColor,
-              }}
-            >
-              <tr>
-                <th
-                  className="px-6 py-4 text-xs font-bold uppercase"
-                  style={{ color: currentTheme.textColor }}
-                >
-                  Plan Info
-                </th>
-                <th
-                  className="px-6 py-4 text-xs font-bold uppercase"
-                  style={{ color: currentTheme.textColor }}
-                >
-                  Pricing
-                </th>
-                <th
-                  className="px-6 py-4 text-xs font-bold uppercase"
-                  style={{ color: currentTheme.textColor }}
-                >
-                  Status
-                </th>
-                <th
-                  className="px-6 py-4 text-xs font-bold uppercase hidden sm:table-cell"
-                  style={{ color: currentTheme.textColor }}
-                >
-                  Features
-                </th>
-                <th
-                  className="px-6 py-4 text-right text-xs font-bold uppercase"
-                  style={{ color: currentTheme.textColor }}
-                >
-                  Action
-                </th>
-              </tr>
-            </thead>
+          {/* Inner scroll wrapper keeps horizontal scrollability on small screens */}
+          <div className="overflow-x-auto rounded-2xl">
+            <table className="w-full text-left">
+              <thead
+                className="border-b"
+                style={{
+                  backgroundColor: currentTheme.background,
+                  borderColor: currentTheme.borderColor,
+                }}
+              >
+                <tr>
+                  <th
+                    className="px-6 py-4 text-xs font-bold uppercase"
+                    style={{ color: currentTheme.textColor }}
+                  >
+                    Plan Info
+                  </th>
+                  <th
+                    className="px-6 py-4 text-xs font-bold uppercase"
+                    style={{ color: currentTheme.textColor }}
+                  >
+                    Pricing
+                  </th>
+                  <th
+                    className="px-6 py-4 text-xs font-bold uppercase"
+                    style={{ color: currentTheme.textColor }}
+                  >
+                    Status
+                  </th>
+                  <th
+                    className="px-6 py-4 text-xs font-bold uppercase hidden sm:table-cell"
+                    style={{ color: currentTheme.textColor }}
+                  >
+                    Features
+                  </th>
+                  <th
+                    className="px-6 py-4 text-right text-xs font-bold uppercase"
+                    style={{ color: currentTheme.textColor }}
+                  >
+                    Action
+                  </th>
+                </tr>
+              </thead>
 
-            <tbody>
-              {state.loading ? (
-                <tr>
-                  <td colSpan={5} className="px-6 py-16 text-center">
-                    <div className="flex justify-center items-center gap-3">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
-                      <span style={{ color: currentTheme.textColor }}>Loading plans...</span>
-                    </div>
-                  </td>
-                </tr>
-              ) : state.error ? (
-                <tr>
-                  <td colSpan={5} className="px-6 py-16 text-center">
-                    <p className="text-red-500 font-bold mb-2">Failed to load plans</p>
-                    <p className="text-sm mb-4" style={{ color: currentTheme.textColor }}>
-                      {state.error}
-                    </p>
-                    <button
-                      onClick={state.refetch}
-                      className="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600 transition-colors"
-                    >
-                      Retry
-                    </button>
-                  </td>
-                </tr>
-              ) : state.plans.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="px-6 py-20 text-center">
-                    <div className="flex flex-col items-center opacity-50">
-                      <div className="bg-gray-100 p-6 rounded-full mb-4">
-                        <MdSearch size={40} className="text-gray-400" />
+              <tbody>
+                {state.loading ? (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-16 text-center">
+                      <div className="flex justify-center items-center gap-3">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+                        <span style={{ color: currentTheme.textColor }}>Loading plans...</span>
                       </div>
-                      <h3
-                        className="font-bold text-lg mb-1"
-                        style={{ color: currentTheme.headingColor }}
-                      >
-                        No Plans Found
-                      </h3>
-                      <p className="text-sm" style={{ color: currentTheme.textColor }}>
-                        Try adjusting your search or filters.
+                    </td>
+                  </tr>
+                ) : state.error ? (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-16 text-center">
+                      <p className="text-red-500 font-bold mb-2">Failed to load plans</p>
+                      <p className="text-sm mb-4" style={{ color: currentTheme.textColor }}>
+                        {state.error}
                       </p>
-                    </div>
-                  </td>
-                </tr>
-              ) : (
-                state.plans.map((plan) => {
-                  const featureList = Array.isArray(plan.features)
-                    ? plan.features
-                    : Object.entries(plan.features).map(([k, v]) => `${k}: ${v}`);
-
-                  return (
-                    <tr
-                      key={plan.id}
-                      className="border-b last:border-0 hover:bg-gray-500/5 transition-colors"
-                      style={{ borderColor: currentTheme.borderColor }}
-                    >
-                      {/* Plan Info */}
-                      <td className="px-6 py-4">
-                        <div className="flex flex-col gap-1.5">
-                          <p
-                            className="font-bold text-sm"
-                            style={{ color: currentTheme.headingColor }}
-                          >
-                            {plan.display_name}
-                          </p>
-                          {(() => {
-                            const s = getPlanTypeStyle(plan.plan_type);
-                            return (
-                              <span
-                                className="inline-flex items-center w-max px-2.5 py-0.5 rounded-md text-[10px] font-bold border"
-                                style={{
-                                  backgroundColor: s.bg,
-                                  color: s.text,
-                                  borderColor: s.border,
-                                }}
-                              >
-                                {plan.plan_type?.toUpperCase()}
-                              </span>
-                            );
-                          })()}
+                      <button
+                        onClick={state.refetch}
+                        className="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600 transition-colors"
+                      >
+                        Retry
+                      </button>
+                    </td>
+                  </tr>
+                ) : state.plans.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-20 text-center">
+                      <div className="flex flex-col items-center opacity-50">
+                        <div className="bg-gray-100 p-6 rounded-full mb-4">
+                          <MdSearch size={40} className="text-gray-400" />
                         </div>
-                      </td>
+                        <h3
+                          className="font-bold text-lg mb-1"
+                          style={{ color: currentTheme.headingColor }}
+                        >
+                          No Plans Found
+                        </h3>
+                        <p className="text-sm" style={{ color: currentTheme.textColor }}>
+                          Try adjusting your search or filters.
+                        </p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  state.plans.map((plan) => {
+                    const featureList = Array.isArray(plan.features)
+                      ? plan.features
+                      : Object.entries(plan.features).map(([k, v]) => `${k}: ${v}`);
+                    const deleteGuard = getPlanDeleteGuard(
+                      plan,
+                      state.planUsageById[plan.id],
+                      {
+                        isChecking:
+                          state.isPlanUsageLoading &&
+                          !state.planUsageById[plan.id],
+                      },
+                    );
 
-                      {/* Pricing */}
-                      <td className="px-6 py-4">
-                        <div className="flex items-baseline gap-1">
+                    return (
+                      <tr
+                        key={plan.id}
+                        className="border-b last:border-0 hover:bg-gray-500/5 transition-colors"
+                        style={{ borderColor: currentTheme.borderColor }}
+                      >
+                        {/* Plan Info */}
+                        <td className="px-6 py-4">
+                          <div className="flex flex-col gap-1.5">
+                            <p
+                              className="font-bold text-sm"
+                              style={{ color: currentTheme.headingColor }}
+                            >
+                              {plan.display_name}
+                            </p>
+                            {(() => {
+                              const s = getPlanTypeStyle(plan.plan_type);
+                              return (
+                                <span
+                                  className="inline-flex items-center w-max px-2.5 py-0.5 rounded-md text-[10px] font-bold border"
+                                  style={{
+                                    backgroundColor: s.bg,
+                                    color: s.text,
+                                    borderColor: s.border,
+                                  }}
+                                >
+                                  {plan.plan_type?.toUpperCase()}
+                                </span>
+                              );
+                            })()}
+                          </div>
+                        </td>
+
+                        {/* Pricing */}
+                        <td className="px-6 py-4">
+                          <div className="flex items-baseline gap-1">
+                            <span
+                              className="text-sm font-bold"
+                              style={{ color: currentTheme.headingColor }}
+                            >
+                              {plan.price === 0 ? "Free" : `$${plan.price}`}
+                            </span>
+                            {plan.price > 0 && (
+                              <span className="text-xs" style={{ color: currentTheme.textColor }}>
+                                {CYCLE_LABEL[plan.billing_cycle] ?? ""}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+
+                        {/* Status */}
+                        <td className="px-6 py-4">
                           <span
-                            className="text-sm font-bold"
-                            style={{ color: currentTheme.headingColor }}
+                            className="inline-flex items-center whitespace-nowrap px-2.5 py-1 rounded-md text-xs font-bold border"
+                            style={{
+                              backgroundColor: plan.is_active
+                                ? "rgba(16,185,129,0.12)"
+                                : "rgba(100,116,139,0.10)",
+                              color: plan.is_active ? "#10b981" : "#94a3b8",
+                              borderColor: plan.is_active
+                                ? "rgba(16,185,129,0.25)"
+                                : "rgba(100,116,139,0.20)",
+                            }}
                           >
-                            {plan.price === 0 ? "Free" : `$${plan.price}`}
+                            {plan.is_active ? "Active" : "Inactive"}
                           </span>
-                          {plan.price > 0 && (
+                        </td>
+
+                        {/* Features */}
+                        <td className="px-6 py-4 hidden sm:table-cell">
+                          {featureList.length > 0 ? (
+                            <ul className="space-y-1 max-w-[220px]">
+                              {featureList.slice(0, 2).map((f: unknown, i: number) => (
+                                <li
+                                  key={i}
+                                  className="flex items-center gap-1.5 text-xs"
+                                  style={{ color: currentTheme.textColor }}
+                                >
+                                  <MdCheck className="text-emerald-500 flex-shrink-0" size={12} />
+                                  <span className="truncate">{String(f)}</span>
+                                </li>
+                              ))}
+                              {featureList.length > 2 && (
+                                <li
+                                  className="text-[10px] opacity-60 pl-4"
+                                  style={{ color: currentTheme.textColor }}
+                                >
+                                  +{featureList.length - 2} more
+                                </li>
+                              )}
+                            </ul>
+                          ) : (
                             <span className="text-xs" style={{ color: currentTheme.textColor }}>
-                              {CYCLE_LABEL[plan.billing_cycle] ?? ""}
+                              No features
                             </span>
                           )}
-                        </div>
-                      </td>
+                        </td>
 
-                      {/* Status */}
-                      <td className="px-6 py-4">
-                        <span
-                          className="inline-flex items-center whitespace-nowrap px-2.5 py-1 rounded-md text-xs font-bold border"
-                          style={{
-                            backgroundColor: plan.is_active
-                              ? "rgba(16,185,129,0.12)"
-                              : "rgba(100,116,139,0.10)",
-                            color: plan.is_active ? "#10b981" : "#94a3b8",
-                            borderColor: plan.is_active
-                              ? "rgba(16,185,129,0.25)"
-                              : "rgba(100,116,139,0.20)",
-                          }}
-                        >
-                          {plan.is_active ? "Active" : "Inactive"}
-                        </span>
-                      </td>
-
-                      {/* Features */}
-                      <td className="px-6 py-4 hidden sm:table-cell">
-                        {featureList.length > 0 ? (
-                          <ul className="space-y-1 max-w-[220px]">
-                            {featureList.slice(0, 2).map((f, i) => (
-                              <li
-                                key={i}
-                                className="flex items-center gap-1.5 text-xs"
-                                style={{ color: currentTheme.textColor }}
-                              >
-                                <MdCheck className="text-emerald-500 flex-shrink-0" size={12} />
-                                <span className="truncate">{String(f)}</span>
-                              </li>
-                            ))}
-                            {featureList.length > 2 && (
-                              <li
-                                className="text-[10px] opacity-60 pl-4"
-                                style={{ color: currentTheme.textColor }}
-                              >
-                                +{featureList.length - 2} more
-                              </li>
-                            )}
-                          </ul>
-                        ) : (
-                          <span className="text-xs" style={{ color: currentTheme.textColor }}>
-                            No features
-                          </span>
-                        )}
-                      </td>
-
-                      {/* Action */}
-                      <td className="px-6 py-4 text-right">
-                        <PlanActionMenu plan={plan} onDelete={state.initiateDelete} />
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+                        {/* Action */}
+                        <td className="px-6 py-4 text-right">
+                          <PlanActionMenu
+                            plan={plan}
+                            onDelete={state.initiateDelete}
+                            deleteGuard={deleteGuard}
+                          />
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         {/* Pagination */}

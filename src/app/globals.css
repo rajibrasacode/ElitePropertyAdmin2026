@@ -91,3 +91,15 @@ h6 {
 .animate-toast-out {
     animation: toast-out 0.2s ease-in forwards;
 }
+
+/* Tooltip fade-in */
+@keyframes fadeInTooltip {
+    from {
+        opacity: 0;
+        transform: translateX(-50%) translateY(4px) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0) scale(1);
+    }
+}

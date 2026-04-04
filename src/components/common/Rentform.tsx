@@ -37,7 +37,8 @@ import {
   amenityOptions,
   PropertyFormData,
   getInitialFormData,
-  propertyListingSchema
+  propertyListingSchema,
+  rentalTypeOptions
 } from "@/utils/propertyFormUtils";
 import { PageHeader } from "@/components/common/Pageheader";
 import { SectionCard } from "@/components/common/Sectioncard";
@@ -240,12 +241,12 @@ export default function RentForm({
           <SectionCard stepNumber={2} title="Property Specs">
             <div className="grid grid-cols-12 gap-x-4 gap-y-5">
               <div className="col-span-12 sm:col-span-6">
-                <InputField label="Property Type" icon={<MdHome />} required>
+                <InputField label="Rent Type" icon={<MdHome />} required>
                   <SelectInput
                     required
 
                     {...register("property_type")}
-                    options={propertyTypeOptions.map((opt) => opt.value)}
+                    options={rentalTypeOptions.map((opt) => opt.value)}
                   />
                 </InputField>
                 <ErrorMessage error={getFieldError("property_type")} />
@@ -321,7 +322,7 @@ export default function RentForm({
               </div>
 
               <div className="col-span-6 sm:col-span-4">
-                <InputField label="Garage" icon={<MdGarage />}>
+                <InputField label="Garage" icon={<MdGarage />} required>
                   <TextInput
                     required
                     type="number"
@@ -333,7 +334,7 @@ export default function RentForm({
                 <ErrorMessage error={getFieldError("garage_spaces")} />
               </div>
               <div className="col-span-6 sm:col-span-4">
-                <InputField label="Parking" icon={<MdDirectionsCar />}>
+                <InputField label="Parking" icon={<MdDirectionsCar />} required>
                   <TextInput
                     required
                     type="number"
@@ -390,7 +391,7 @@ export default function RentForm({
                 <ErrorMessage error={getFieldError("roof_status")} />
               </div>
               <div className="col-span-12">
-                <InputField label="Interior Condition" icon={<MdBrush />}>
+                <InputField label="Interior Condition" icon={<MdBrush />} required>
                   <SelectInput
                     required
 
@@ -477,7 +478,7 @@ export default function RentForm({
 
             <div className="col-span-12 sm:col-span-6 lg:col-span-4">
               <InputField
-                label="Lease Duration (Mo)"
+                label="Lease Duration (M)"
                 icon={<MdCalendarToday />}
               >
                 <TextInput

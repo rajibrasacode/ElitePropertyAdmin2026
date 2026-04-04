@@ -9,11 +9,18 @@ export interface PlanPermissionsMap {
   [module: string]: PlanPermission;
 }
 
+export interface PlanRoleUser {
+  id: number | string;
+  username?: string;
+}
+
 export interface PlanRole {
   Id: number;
   Name: string;
   role_title: string;
   permissions: Array<{ id: number; permissions: PlanPermissionsMap }>;
+  users?: PlanRoleUser[];
+  user_count?: number;
 }
 
 export interface PlanOrganization {
@@ -29,6 +36,24 @@ export interface PlanFeatures {
   [key: string]: string | number | boolean;
 }
 
+export interface PlanUserSummary {
+  id: number | string;
+  username?: string;
+}
+
+export interface PlanSubscriptionSummary {
+  id: number | string;
+  user_id?: number | string;
+  plan_id?: number | string;
+  status?: string;
+}
+
+export interface PlanUsageCounts {
+  organizationCount?: number;
+  subscriptionCount?: number;
+  userCount?: number;
+}
+
 export interface Plan {
   id: number;
   name: string;
@@ -39,12 +64,21 @@ export interface Plan {
   plan_type: string;
   role: PlanRole;
   role_id: number;
-  organization: PlanOrganization;
-  organization_id: number;
+  organization: PlanOrganization | null;
+  organization_id: number | null;
   is_active: boolean;
   features: PlanFeatures | string[];
   created_at: string;
   updated_at: string;
+  organizations?: PlanOrganization[];
+  organization_count?: number;
+  organizations_count?: number;
+  users?: PlanUserSummary[];
+  user_count?: number;
+  users_count?: number;
+  subscriptions?: PlanSubscriptionSummary[];
+  subscription_count?: number;
+  subscriptions_count?: number;
 }
 
 // Pagination

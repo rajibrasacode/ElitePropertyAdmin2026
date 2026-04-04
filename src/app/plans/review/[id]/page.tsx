@@ -11,18 +11,22 @@ import {
   MdPerson,
   MdSecurity,
   MdStar,
-  MdCalendarToday,
   MdAttachMoney,
   MdLocalOffer,
 } from "react-icons/md";
 import { useTheme } from "@/providers/ThemeProvider";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { getPlanByIdService, deletePlanService } from "@/services/plans.service";
+import {
+  deletePlanService,
+  getPlanByIdService,
+  getPlanUsageCountsService,
+} from "@/services/plans.service";
 import { ConfirmModal } from "@/components/common/ConfirmModal";
 import { showErrorToast, showSuccessToast } from "@/utils/toast";
 import { PermissionGuard } from "@/components/auth/PermissionGuard";
-import type { Plan, PlanPermission } from "@/types/plans.types";
+import type { Plan, PlanPermission, PlanUsageCounts } from "@/types/plans.types";
+import { getPlanDeleteGuard } from "@/utils/planDeleteUtils";
 
 const getErrorMessage = (error: unknown, fallback: string) => {
   if (typeof error === "string") return error;
@@ -82,6 +86,8 @@ function PlanDetailContent() {
   const [error, setError] = useState<string | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [planUsage, setPlanUsage] = useState<PlanUsageCounts | null>(null);
+  const [planUsageLoading, setPlanUsageLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<"details" | "permissions">("details");
   const fetchedIdRef = useRef<string | null>(null);
 
@@ -97,6 +103,15 @@ function PlanDetailContent() {
       try {
         const data = await getPlanByIdService(planId);
         setPlan(data);
+        setPlanUsageLoading(true);
+        try {
+          const usageMap = await getPlanUsageCountsService([data.id]);
+          setPlanUsage(usageMap[data.id] ?? null);
+        } catch {
+          setPlanUsage(null);
+        } finally {
+          setPlanUsageLoading(false);
+        }
       } catch (err: unknown) {
         setError(getErrorMessage(err, "Failed to load plan details"));
         fetchedIdRef.current = null;
@@ -150,6 +165,38 @@ function PlanDetailContent() {
   const featureList = Array.isArray(plan.features)
     ? plan.features.map(String)
     : Object.entries(plan.features).map(([k, v]) => `${k}: ${v}`);
+  const deleteGuard = getPlanDeleteGuard(plan, planUsage ?? undefined, {
+    isChecking: planUsageLoading && !planUsage,
+  });
+  const deleteButton = (
+    <button
+      type="button"
+      onClick={() => {
+        if (deleteGuard.isBlocked) {
+          return;
+        }
+
+        setIsDeleteModalOpen(true);
+      }}
+      disabled={deleteGuard.isBlocked}
+      aria-disabled={deleteGuard.isBlocked}
+      className={`w-full py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 border transition-colors ${
+        deleteGuard.isBlocked
+          ? "cursor-not-allowed opacity-60"
+          : "hover:bg-rose-50 text-rose-600 border-rose-200"
+      }`}
+      style={
+        deleteGuard.isBlocked
+          ? {
+              borderColor: currentTheme.borderColor,
+              color: currentTheme.textColor,
+            }
+          : undefined
+      }
+    >
+      <MdDelete size={16} /> Delete Plan
+    </button>
+  );
 
   return (
     <div className="max-w-[1600px] mx-auto min-h-screen pb-20">
@@ -271,12 +318,13 @@ function PlanDetailContent() {
                 </PermissionGuard>
                 
                 <PermissionGuard module="plan" action="delete">
-                  <button
-                    onClick={() => setIsDeleteModalOpen(true)}
-                    className="w-full py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 border transition-colors hover:bg-rose-50 text-rose-600 border-rose-200"
-                  >
-                    <MdDelete size={16} /> Delete Plan
-                  </button>
+                  {deleteGuard.isBlocked ? (
+                    <div className="w-full cursor-help" title={deleteGuard.tooltip}>
+                      {deleteButton}
+                    </div>
+                  ) : (
+                    deleteButton
+                  )}
                 </PermissionGuard>
               </div>
             </div>
@@ -320,13 +368,13 @@ function PlanDetailContent() {
                 className="flex items-center gap-1 border-b overflow-x-auto hide-scrollbar"
                 style={{ borderColor: currentTheme.borderColor }}
               >
-                {[
+                {([
                   { id: "details", label: "Plan Details", icon: MdLocalOffer },
                   { id: "permissions", label: "Permissions Matrix", icon: MdSecurity },
-                ].map((item) => (
+                ] as const).map((item) => (
                   <button
                     key={item.id}
-                    onClick={() => setActiveTab(item.id as any)}
+                    onClick={() => setActiveTab(item.id)}
                     className={`relative px-6 py-3 text-sm font-bold flex items-center gap-2 transition-all whitespace-nowrap ${
                       activeTab === item.id
                         ? "opacity-100"
@@ -500,4 +548,4 @@ function PlanDetailContent() {
       </div>
     </div>
   );
-}
+}
